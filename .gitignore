@@ -1,0 +1,51 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python caches and generated files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Node dependencies
+node_modules/
+
+# Vue and Vite output and caches
+frontend/dist/
+.vite/
+*.local
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating-system artifacts
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
