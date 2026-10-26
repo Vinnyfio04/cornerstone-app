@@ -1,244 +1,101 @@
 # Cornerstone Current Handoff
 
-Generated from the repository and read-only checks on 2026-10-15 in `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
+Verified and updated on 2026-10-26 from `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
 
-## 1. Current objective and decisions
+## Resume first
 
-The immediate authorized objective was to create this handoff so another coding agent can continue without the prior conversation. No application-code, dependency, service, or Git changes were authorized as part of that work.
+Read `AGENTS.md`, `README.md`, `docs/assignment_instructions.md`, `docs/phase-1-contract.md`, `docs/mvc-contracts.md`, `docs/design-pipeline.md`, `docs/design_notes.md`, `docs/verification.md`, and this handoff. Recheck the branch and working tree before editing. Preserve the pre-existing user modification to `report.md` unless the user explicitly asks to change it.
 
-Durable decisions and constraints:
+## Objective and current state
 
-- The project is named Cornerstone.
-- The intended stack is Vue for the browser UI, FastAPI/Python for the API and backend logic, and SQLite for persistence, running locally.
-- Python and JavaScript environments must remain project-owned. Do not install project dependencies globally.
-- Keep framework-free domain logic separate from FastAPI routes, and keep Vue presentation separate from backend-request code.
-- Vue and FastAPI must communicate through a documented JSON contract.
-- Deterministic application code must control workflow steps, timing, state, exits, failure handling, persistence, and the independent support-information path. A language model may provide only a bounded contribution.
-- Treat the product as a coursework prototype, not a clinical service. Follow the testing and safety boundaries in `docs/assignment_instructions.md`; use that file for alignment without reproducing its exact text unnecessarily.
-- Ask before machine-level installation, destructive work, dependency changes, or scope expansion. Never use `sudo` automatically.
-- Git initialization or history changes are not currently authorized. This folder is not yet a Git repository.
+Cornerstone is a coursework prototype for low-effort grounding in fictional test scenarios. The current vertical slice demonstrates both chosen skills through the running interface, measured exercise duration and exit behavior, persisted text-chat conversations and sessions in SQLite, deterministic provider failure recovery, and an independent static support route. The latest increment adds optional spoken interaction to Chat, but its evidence is mocked rather than a paid browser/provider run.
 
-Important product choices are still unresolved: which supported skill to implement first, detailed interaction flow, model/provider and bounded model role, personalization behavior, SQLite schema, JSON contract, crisis-support content and presentation, and the evidence/reporting structure.
+The reviewed scope is:
 
-## 2. Architecture and important-file map
+- A home screen with hold-to-breathe pacing and a prominent 5-4-3-2-1 grounding entry.
+- A separate sensory-grounding flow with completion, early exit, measured duration, and persistence.
+- Persisted text chat with deterministic mock behavior, bounded OpenAI Responses configuration, fallback records, retry/reload controls, and process-restart history.
+- Optional microphone-started OpenAI Live interaction on the Chat screen.
+- A direct `/support` route that is View-owned and independent of model/API success. Its jurisdiction-specific resource content is still intentionally incomplete.
+- Fictional local demo-user CRUD rather than active authentication.
 
-Intended request boundary:
+## Latest implemented increment
 
-```text
-Vue presentation
-    -> dedicated frontend request module
-    -> FastAPI route and validation
-    -> framework-free domain/application service
-    -> SQLite repository / bounded model adapter / deterministic workflow
-    -> documented result object
-    -> FastAPI JSON response
-    -> frontend request module
-    -> Vue presentation update
+Backend voice boundary:
 
-User -> independent support-information UI path
-        (must not depend on model success)
-```
+- `GET /api/voice/config` returns only readiness status and the bounded duration.
+- `POST /api/voice/sessions` accepts only a bounded SDP offer. The current app does not require a profile/owner ID for voice, so the endpoint does not accept one.
+- `backend/controllers/services/voice_service.py` owns `gpt-live-1`, `VOICE_BACKEND_MODEL`, the provider URL through the SDK, prompts, policy, event allowlists, the 15-second timeout, disabled retries, and the no-tools setting.
+- Provider creation uses `store: false` only as a session-retrieval setting; this is not a general provider-retention claim.
+- Responses expose only a validated session ID, SDP answer, and duration. Missing configuration, invalid or oversized SDP, provider failures, timeouts, and malformed provider responses produce sanitized public errors.
+- `LIVE_INSTRUCTIONS` is the short spoken prompt. `DELEGATED_BACKEND_INSTRUCTIONS` separately defines reviewed application scope, self-report versus interpretation, permission before suggesting an activity, honest missing-context handling, and the prohibitions against diagnosis, therapy/treatment claims, medical advice, implied human monitoring, or invented record access.
+- The independent crisis-support route is outside model control. Audio and voice transcripts are not persisted.
 
-Current important files:
+Frontend voice boundary:
 
-```text
-AGENTS.md                         durable scope, architecture, permission, and reporting rules
-README.md                         current setup, verification, and development commands
-.gitignore                        ignores environments, generated output, caches, and secrets
-backend/requirements.txt          declares only fastapi[standard] and pytest
-backend/.venv/                    installed project-owned Python environment; ignored
-frontend/package.json             Vue/Vite/ESLint-family declarations and scripts
-frontend/package-lock.json        retained npm lockfile
-frontend/src/                     generated Vue starter; no project-specific interface found
-frontend/node_modules/            installed project-owned dependencies; ignored
-frontend/dist/                    existing generated build output; ignored
-docs/assignment_instructions.md   internal requirements-alignment source
-docs/design-pipeline.md           current/planned structure, request flow, checkpoints
-docs/verification.md              MISSING as of this handoff
-prompts/01-bounded-scaffold.md    initial scaffold prompt
-prompts/02-backend-environment.md backend environment prompt
-prompts/03-frontend-environment.md frontend environment prompt
-prompts/04-complete-scaffold-verification.md non-mutating scaffold audit prompt
-handoffs/create-handoff.md        handoff creation and resumption prompts
-handoffs/current.md               this temporary state record
-```
+- `frontend/src/pages/ChatPage.vue` adds optional voice without replacing text chat.
+- `frontend/src/voice/voiceSession.js` requests audio-only MediaDevices access, creates an `RTCPeerConnection`, remote audio element, and `oai-events` data channel, creates the data channel before the offer, waits for ICE gathering, exchanges SDP through FastAPI, and becomes active only after `session.started`.
+- The View presents permission, connecting, active, muted, closing, closed, and error states. Blocked playback exposes **Enable assistant audio**. Permission denial or any connection/provider error leaves text chat usable.
+- Stop, close, error, timeout, superseded starts, and component unmount release timers, tracks, handlers, data channel, peer connection, and remote audio state.
 
-Planned but not implemented application areas are backend API, domain, persistence, services, and tests, plus frontend request, view, and state modules. Directory names may be refined, but the separation boundaries above are durable.
+## Architecture and durable decisions
 
-## 3. Git state
+- MVC direction remains `frontend/` View → `backend/controllers/` → `backend/models/`.
+- Models own entities, relationships, and `backend/models/data/`. Controllers own SQLite CRUD, FastAPI, provider orchestration, and business logic. The entire `frontend/` directory is the View.
+- The View communicates only through `docs/mvc-contracts.md`; it never imports Python or accesses SQLite.
+- Deterministic code owns exercise sequencing, timing, persistence, exits, errors, and support access. Model output is bounded and must not control the support route.
+- Do not diagnose, represent the prototype as therapy/treatment, imply human monitoring, invent crisis resources, or claim access to unsupplied records.
 
-Git itself is installed at `C:\Program Files\Git\cmd\git.exe`, version `2.51.0.windows.1`.
+## Git and working-tree state
 
-The project folder is not inside a Git repository. Each direct repository query returned exit code 128 with `fatal: not a git repository (or any of the parent directories): .git`.
+- Remote: `https://github.com/Vinnyfio04/cornerstone-app.git`
+- Branch: `codex/first-rough-implementation`
+- Upstream: none recorded
+- `HEAD`: `e7baca0f0a001550a1a1709cdf6ca684cef3afa3`
+- Commit: `Created initial framework of the project.`
+- The working tree contains the Phase 1 implementation and documentation as uncommitted modifications/untracked files relative to that initial commit. Do not discard or broadly overwrite it.
+- Modified tracked files include `.gitignore`, `AGENTS.md`, `README.md`, `backend/requirements.txt`, design docs, frontend package/runtime files, this handoff, and `report.md`.
+- Untracked implementation files include the current backend models/controllers/tests, MVC and verification docs, and frontend API/components/pages/router/session/utils/voice/tests.
+- `report.md` is known pre-existing user work and must be preserved.
 
-Therefore:
+## Current configuration and paid-call warning
 
-- Current branch: not applicable.
-- HEAD commit: not applicable.
-- Relevant branches: none available.
-- Upstream relationships: none available.
-- Working-tree cleanliness: not applicable; there is no Git working tree.
-- Recent commits: none available.
-- Configured remotes: none available.
-- Commit identifiers for completed work: none available.
+A names-and-presence-only inspection of the ignored `.env` found nonempty `OPEN_AI_API_KEY`, `VOICE_BACKEND_MODEL`, and `VOICE_MAX_SESSION_SECONDS`. `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, and explicit `CHAT_PROVIDER` were absent. No secret value was printed or changed.
 
-Do not initialize Git, create branches, stage, commit, or configure a remote without explicit user authorization.
+Starting Uvicorn with `--env-file .env` can therefore select billable OpenAI behavior for text and voice. Do not make a live provider call without explicit user approval. For a credential-free text demonstration, force `CHAT_PROVIDER=mock` in the task-started server process without editing the ignored environment.
 
-## 4. Completed work
+## Verification completed on 2026-10-26
 
-- The bounded root scaffold exists: `backend/`, `frontend/`, `docs/`, `README.md`, `AGENTS.md`, and `.gitignore`.
-- `backend/.venv` exists and uses CPython 3.12.14 from inside the project.
-- `backend/requirements.txt` declares only `fastapi[standard]` and `pytest`.
-- Current imports report FastAPI 0.143.1 and pytest 9.1.1; `pip check` reports no broken requirements.
-- The frontend is an installed Vue starter with a lockfile. `npm ls --depth=0` completed successfully and reported Vue 3.5.44, Vite 8.3.4, ESLint 10.12.0, and the other declared top-level tools.
-- Fresh non-fixing Oxc and ESLint checks returned exit code 0. ESLint emitted a warning about the missing `.oxlintrc.json`; see risks below.
-- Documentation now includes the internal alignment source, design pipeline, ordered prompt library, handoff template, and this handoff.
-- Static inspection found no backend implementation beyond `backend/requirements.txt` and no project-specific frontend/backend API integration. The only `fetch` match in `frontend/src` is the generated Vue DevTools `__open-in-editor` helper.
+- Backend: `40 passed in 5.12s` using a workspace-local pytest base temporary directory.
+- Frontend: `23` tests passed, `0` failed, including mocked voice/browser lifecycle tests.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `60` modules in `1.45s`.
+- `pip check` reported no broken requirements.
+- No paid provider call was made.
 
-No commit identifiers exist because Git has not been initialized.
+Read-only SQLite inspection of `backend/models/data/cornerstone.db` found:
 
-## 5. Incomplete or requested work
+- `users`: 2; `login`: 0; `conversations`: 1; `chat_logs`: 6; `exercise_sessions`: 9.
+- Paced breathing: 2 completed, 4 exited. Sensory grounding: 2 completed, 1 exited.
+- Chat: 3 delivered user messages, 1 delivered assistant message, 2 fallback assistant messages.
+- `PRAGMA foreign_key_check`: no violations.
 
-- `docs/verification.md` is requested by the handoff workflow but does not exist.
-- The README opening still says product requirements and feature scope are undefined, while the internal alignment source now supplies a high-level product direction. Reconcile this when documentation work is authorized.
-- No application-specific UI, FastAPI entry point, route, domain logic, SQLite schema/repository, model adapter, JSON contract, backend tests, persistence, personalization, saved-history view, or independent support route has been implemented.
-- The first supported skill and the bounded role of the language model have not been selected or documented.
-- The design milestone still needs a concrete user flow, data model, timing assumptions, failure/exit behavior, model limits, personalization/control tradeoffs, and verification plan.
-- A production build was not rerun during this handoff because it writes `frontend/dist/`. Existing `frontend/dist/` proves only that output is present, not that the current source builds.
-- The exact configured `npm run lint` script was not run because it includes `--fix` and `--cache`, which can modify files. Equivalent non-fixing checks were run instead.
-- Repository initialization and the first commit remain future work requiring explicit approval.
+Earlier browser/SQLite evidence demonstrates a completed sensory-grounding exercise, an exited grounding exercise, a complete 60-second breathing sequence, an early breathing exit, deterministic mock chat, fallback rows after model failure, history after API restart, and `/support` availability during an API outage. Exact observations are in `docs/verification.md`.
 
-## 6. Verification commands and observed results
+The development processes used for earlier walkthroughs are no longer available. Start fresh servers before further browser work; do not assume FastAPI or Vite is running because the in-app browser still shows a localhost URL.
 
-Commands below were run from the project root during this handoff unless noted otherwise.
+## Unfinished and unverified
 
-### Required-file and inventory inspection
+- Real browser microphone permission/denial, WebRTC negotiation, remote audio, interruption, mute/unmute, closing, duration expiry, autoplay recovery, and Live data-channel behavior.
+- Any paid `gpt-live-1` or delegated Responses request, model quality, provider availability, billing, or provider-side retention behavior.
+- Post-live-session SQLite inspection confirming that no audio or transcripts were stored.
+- The fifteen-scenario evaluation matrix, component-level Vue tests, systematic accessibility review, and saved walkthrough recording.
+- Final approved jurisdiction-specific crisis-support resources.
+- Active authentication and supplied therapy-conversation reference material.
+- Broad visual refinement and an updated wireframe covering history, exits, failures, and support.
 
-```powershell
-Get-Content -LiteralPath AGENTS.md
-Get-Content -LiteralPath README.md
-Get-Content -LiteralPath docs/design-pipeline.md
-Get-Content -LiteralPath docs/verification.md
-Get-ChildItem -LiteralPath prompts -File | Sort-Object Name
-Get-Content -LiteralPath docs/assignment_instructions.md
-Get-Content -LiteralPath backend/requirements.txt
-Get-Content -LiteralPath frontend/package.json
-Get-Content -LiteralPath .gitignore
-rg --files -g '!backend/.venv/**' -g '!frontend/node_modules/**' -g '!frontend/dist/**'
-```
+## Exact next step
 
-Observed: all listed files except `docs/verification.md` were readable. The prompt library contains four ordered prompt files. The non-generated inventory contains the scaffold documentation, one backend manifest, and generated Vue starter sources.
+Ask the user whether they explicitly approve one short paid end-to-end Live-audio check. If approved, start FastAPI with the ignored environment and start Vite, open `/chat`, have the user grant microphone permission, run one brief fictional interaction, verify all visible voice states plus mute/close/autoplay recovery where possible, then inspect SQLite read-only to confirm that no audio or voice transcript rows were added. Keep the session within the configured duration and report that `store: false` is not a general retention guarantee.
 
-### Application-code inspection
-
-```powershell
-rg -n -i 'fetch\(|axios|fastapi|localhost|127\.0\.0\.1|crisis|sqlite|model|chat' frontend/src frontend/package.json
-Get-ChildItem -LiteralPath backend -File -Recurse | Where-Object { $_.FullName -notlike '*\.venv\*' }
-```
-
-Observed: the frontend search found only the generated Vue DevTools editor helper and a Vue community link. The only backend file outside `.venv` is `backend/requirements.txt`.
-
-### Git
-
-```powershell
-git --version
-git rev-parse --show-toplevel
-git status --short --branch
-git rev-parse HEAD
-git branch -vv --all
-git log -5 --date=iso-strict --pretty=format:'%H%x09%ad%x09%s'
-git remote -v
-```
-
-Observed: `git --version` returned `git version 2.51.0.windows.1`. Every repository-specific command returned exit code 128 because this directory is not a Git repository.
-
-### Backend environment
-
-```powershell
-& 'backend/.venv/Scripts/python.exe' --version
-& 'backend/.venv/Scripts/python.exe' -B -c "import pathlib, sys; import fastapi, pytest; print('executable=' + sys.executable); print('inside_venv=' + str(pathlib.Path(sys.executable).resolve().is_relative_to(pathlib.Path('backend/.venv').resolve()))); print('fastapi=' + fastapi.__version__); print('pytest=' + pytest.__version__)"
-& 'backend/.venv/Scripts/python.exe' -m pip check
-```
-
-Observed: Python 3.12.14; executable resolved to `backend\.venv\Scripts\python.exe`; `inside_venv=True`; FastAPI 0.143.1; pytest 9.1.1; import command exit 0; `pip check` exit 0 with `No broken requirements found.`
-
-### Frontend environment and read-only checks
-
-```powershell
-node --version
-npm --version
-npm --prefix frontend ls --depth=0
-& 'frontend/node_modules/.bin/oxlint.cmd' 'frontend'
-& 'frontend/node_modules/.bin/eslint.cmd' 'frontend' '--no-cache'
-```
-
-Observed: Node v25.7.0 at `C:\Program Files\nodejs\node.exe`; npm 11.10.1 at `C:\Program Files\nodejs\npm.ps1`; installed-tree command exit 0; Oxc exit 0; ESLint exit 0 with warning `eslint-plugin-oxlint: could not find oxlint config file: .oxlintrc.json`.
-
-The package manifest requires Node `^22.18.0 || >=24.12.0`, so the installed Node version satisfies the manifest. The current official Vue Quick Start requirement was not independently checked during this handoff.
-
-### Services and generated state
-
-```powershell
-Get-CimInstance Win32_Process | Where-Object { ($_.Name -in @('node.exe','python.exe','python3.exe','uvicorn.exe')) -and $_.CommandLine -and $_.CommandLine.Contains('cornerstone-app') }
-Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in @(5173,4173,8000) }
-Test-Path backend/.venv
-Test-Path frontend/node_modules
-Test-Path frontend/package-lock.json
-Test-Path frontend/dist
-Test-Path docs/verification.md
-```
-
-Observed: no Node/Python process with the project path in its command line, and no listener on ports 5173, 4173, or 8000. The virtual environment, `node_modules`, lockfile, and `dist` exist; `docs/verification.md` does not.
-
-## 7. Active services
-
-No Cornerstone service was verified as running. No project-path Node/Python process was found, and the conventional Vue/Vite preview and FastAPI ports 5173, 4173, and 8000 had no listeners.
-
-Because no service was found, there is no verified start command or process owner to preserve or stop. The documented frontend development command is `npm --prefix frontend run dev`; there is no backend development command until an entry point exists.
-
-## 8. Failures, unresolved questions, risks, and assumptions
-
-- Missing evidence: `docs/verification.md` does not exist. Do not claim the complete scaffold verification passed solely from README or design-pipeline prose.
-- Documentation mismatch: the README describes the product purpose as undefined, but the internal requirements source establishes a high-level direction.
-- Build evidence gap: `frontend/dist/` exists, but no fresh production build was run under the write-only-handoff constraint.
-- Lint warning: ESLint exits successfully but warns that `.oxlintrc.json` is absent. Determine whether this is expected companion-tool behavior before changing configuration.
-- The current frontend is generated starter content, including an editor-helper fetch; do not mistake that for an application API integration.
-- There is no Git safety net, commit history, branch, upstream, or remote.
-- The intended architecture includes sensitive safety behavior. The independent support route, deterministic failure behavior, and model limits must be designed and tested explicitly rather than delegated to a prompt.
-- No skill selection, model/provider decision, schema, API contract, or persistence approach has been approved.
-- Assume generated directories (`backend/.venv`, `frontend/node_modules`, `frontend/dist`) are disposable and must stay ignored. Preserve manifests and lockfiles.
-
-## 9. Recommended next action
-
-First read, in order:
-
-1. `AGENTS.md`
-2. `README.md`
-3. `docs/assignment_instructions.md`
-4. `docs/design-pipeline.md`
-5. `docs/verification.md` if it has since been created
-6. `prompts/04-complete-scaffold-verification.md`
-7. `handoffs/current.md`
-
-Then independently rerun the relevant read-only checks before trusting this handoff. Ask the user for the next explicit scope. Do not initialize Git or begin feature implementation based only on this document.
-
-If the user authorizes design work, the recommended next milestone is documentation-only: select one coherent initial skill, define the main flow and timing assumptions, document the independent support route and failure/exit behavior, bound the model's role, sketch the SQLite entities and JSON contract, and establish a deterministic verification plan. Resolve consequential choices with targeted questions before writing application code.
-
-## 10. Verification confidence
-
-Verified facts:
-
-- Required scaffold directories and primary documentation exist except `docs/verification.md`.
-- This folder is not a Git repository; branch, HEAD, upstreams, commits, remotes, and clean-status claims are not applicable.
-- The backend virtual environment is project-local and currently imports FastAPI and pytest successfully.
-- Current declared and installed frontend top-level dependencies are present; non-fixing lint checks exit successfully.
-- No project-specific backend implementation or frontend API integration was found by the stated inspection.
-- No project service was found by project-path process inspection or common-port listener checks.
-
-Claims requiring verification or a user decision:
-
-- Whether a prior complete scaffold verification or production build passed; there is no `docs/verification.md` evidence.
-- Whether current official Vue documentation still uses the same Node requirement as `frontend/package.json`.
-- Which application skill, model integration, persistence design, safety behavior details, and personalization approach to implement.
-- Whether and when to initialize Git and create the initial commit.
-- Whether the ESLint/Oxc warning needs configuration work or can be accepted as generated-tool behavior.
+If the user does not approve paid use, keep provider/browser behavior mocked and proceed with the fifteen-scenario evaluation matrix or the remaining accessibility/support-content work they choose. Do not infer paid approval, invent final support resources, or broaden into active authentication or absent reference-material ingestion.

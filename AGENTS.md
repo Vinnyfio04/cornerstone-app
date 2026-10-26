@@ -8,9 +8,14 @@
 
 ## Architecture
 
-- Keep framework-free Python domain logic separate from FastAPI routes.
-- Keep frontend presentation separate from backend-request code.
-- Communicate between Vue and FastAPI through a documented JSON contract.
+- Follow MVC with `backend/models/`, `backend/controllers/`, and the complete `frontend/` directory as the View.
+- Keep model entities and the model-owned `data/` directory under `backend/models/`; models must not import controllers or frontend code.
+- Keep the database controller, FastAPI code, calculations, and other business controllers under `backend/controllers/`.
+- Controllers may call other controllers only through documented inputs, outputs, and error behavior.
+- Keep all Vue screens, components, CSS, assets, and frontend runtime files inside `frontend/`; do not add a nested MVC `views/` directory.
+- Keep UI and CSS in the View. The View must never access SQLite or import backend Python modules directly.
+- Communicate between the View and controllers through the JSON contract documented in `docs/mvc-contracts.md`.
+- Keep framework-free calculations separate from FastAPI route files even though both belong to the controller layer.
 
 ## Dependencies and permissions
 

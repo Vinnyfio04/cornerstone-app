@@ -17,6 +17,12 @@ htmlcov/
 build/
 dist/
 
+# Local SQLite data
+backend/models/data/*.db
+backend/models/data/*.db-shm
+backend/models/data/*.db-wal
+backend/models/data/intents.json
+
 # Node dependencies
 node_modules/
 
