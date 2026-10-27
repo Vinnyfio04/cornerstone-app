@@ -58,9 +58,7 @@ function retryDemoUser() {
   gap: 0.75rem 1.5rem;
   padding: 1rem max(1rem, calc((100% - 70rem) / 2));
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 250, 242, 0.88);
-  box-shadow: 0 0.3rem 1.4rem rgba(54, 85, 69, 0.05);
-  backdrop-filter: blur(12px);
+  background: var(--color-background);
 }
 
 .brand-link {

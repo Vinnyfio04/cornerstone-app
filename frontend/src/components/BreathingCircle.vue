@@ -92,7 +92,7 @@ const progressStyle = computed(() => {
 
   return {
     '--breathing-scale': scale.toFixed(4),
-    '--exercise-progress': `${snapshot.value.progressPercent}%`,
+    '--exercise-progress': `${snapshot.value.phaseProgressPercent}%`,
   }
 })
 

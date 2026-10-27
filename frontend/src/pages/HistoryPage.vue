@@ -36,6 +36,15 @@ function skillLabel(skill) {
   return skill === 'paced_breathing' ? 'Paced breathing' : '5-4-3-2-1 grounding'
 }
 
+function conversationTitle(conversation) {
+  const firstUserMessage = conversation.messages.find((message) => message.role === 'user')
+  const content = firstUserMessage?.content.trim()
+  if (!content) {
+    return `Conversation ${conversation.id}`
+  }
+  return content.length > 64 ? `${content.slice(0, 61)}…` : content
+}
+
 async function loadHistory() {
   const user = demoUserSession.user.value
   if (!user) {
@@ -106,14 +115,37 @@ watch(
       </section>
 
       <section aria-labelledby="conversation-heading">
-        <h2 id="conversation-heading">Conversations</h2>
+        <div class="section-heading">
+          <div>
+            <h2 id="conversation-heading">Past conversations</h2>
+            <p>Messages save automatically and can be reopened to continue the same chat.</p>
+          </div>
+          <RouterLink class="button-link" :to="{ name: 'chat', query: { new: '1' } }">
+            New conversation
+          </RouterLink>
+        </div>
         <p v-if="conversations.length === 0">No saved conversations yet.</p>
         <ol v-else class="conversation-list">
           <li v-for="conversation in conversations" :key="conversation.id">
             <details class="conversation-card">
               <summary>
-                Conversation {{ conversation.id }} · {{ formatDate(conversation.updated_at) }}
+                {{ conversationTitle(conversation) }}
               </summary>
+              <div class="conversation-meta">
+                <small>
+                  Updated {{ formatDate(conversation.updated_at) }} ·
+                  {{ conversation.messages.length }} messages
+                </small>
+                <RouterLink
+                  class="button-link button-link-small"
+                  :to="{
+                    name: 'chat',
+                    query: { conversation: String(conversation.id) },
+                  }"
+                >
+                  Open conversation
+                </RouterLink>
+              </div>
               <div class="conversation-messages">
                 <ChatMessage
                   v-for="message in conversation.messages"
@@ -188,6 +220,35 @@ strong {
   gap: 1rem;
 }
 
+.section-heading,
+.conversation-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.button-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--color-primary);
+  border-radius: 999px;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-link-small {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
 summary {
   cursor: pointer;
   font-weight: 700;
@@ -223,6 +284,8 @@ button {
 
 @media (max-width: 34rem) {
   .history-card > div,
+  .section-heading,
+  .conversation-meta,
   .error-card {
     align-items: stretch;
     flex-direction: column;

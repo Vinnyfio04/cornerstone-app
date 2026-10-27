@@ -3,7 +3,6 @@
 from .chat_provider import (
     ChatProvider,
     ChatTurn,
-    MockChatProvider,
     ModelTimeoutError,
     ModelUnavailableError,
     OpenAIChatProvider,
@@ -34,7 +33,6 @@ __all__ = [
     "ChatResult",
     "ChatService",
     "ChatTurn",
-    "MockChatProvider",
     "ModelTimeoutError",
     "ModelUnavailableError",
     "OpenAIChatProvider",

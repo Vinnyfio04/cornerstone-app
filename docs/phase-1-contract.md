@@ -8,7 +8,7 @@ Cornerstone remains a local coursework prototype evaluated only with fictional s
 
 ## Phase objective
 
-Build a functional framework connecting the Vue View, FastAPI controllers, and SQLite models. Phase 1 emphasizes navigable pages, deterministic skill structure, persistence boundaries, a mockable chat-provider interface, and clear failure states. Visual refinement and supplied conversation-reference material come later.
+Build a functional framework connecting the Vue View, FastAPI controllers, and SQLite models. Phase 1 emphasizes navigable pages, deterministic skill structure, persistence boundaries, a testable OpenAI chat-provider interface, and clear failure states. Visual refinement and supplied conversation-reference material come later.
 
 ## Page routes
 
@@ -16,7 +16,7 @@ Build a functional framework connecting the Vue View, FastAPI controllers, and S
 | --- | --- | --- |
 | `/` | Home | Hold-to-breathe control, prominent grounding entry, chat entry, persistent support link |
 | `/grounding` | 5-4-3-2-1 grounding | Deterministic five-step sequence with no required typing |
-| `/chat` | Conversation | Standard text chat using mock mode without credentials and OpenAI when configured |
+| `/chat` | Conversation | Persisted text chat through OpenAI when configured; otherwise a recoverable unavailable state |
 | `/history` | Saved activity | Lists persisted chat messages and exercise sessions for the active fictional user |
 | `/account` | Account framework | Profile CRUD shell; authentication remains inactive unless explicitly approved |
 | `/support` | Crisis-support information | Static View content that works without FastAPI, SQLite, OpenAI, or classification |
@@ -62,8 +62,8 @@ Phase 1 requires no typed response. The user advances with clear Next and Back c
 
 The chat page provides a message list, text input, send action, loading state, retryable failure state, history access, an optional microphone-started voice session, and the persistent support link. Voice permission denial or connection failure never disables text chat.
 
-- The credential-free development provider is deterministic `mock` mode.
-- OpenAI mode is enabled when the server has `OPEN_AI_API_KEY` or `OPENAI_API_KEY` plus a configured model identifier.
+- Production text chat always uses the OpenAI Responses adapter. Deterministic providers are permitted only as injected test doubles.
+- OpenAI requests are ready when the server has `OPEN_AI_API_KEY` or `OPENAI_API_KEY` plus a configured model identifier. Missing configuration follows the recoverable provider-failure path and never returns a synthetic successful reply.
 - `OPENAI_CHAT_MODEL` is the preferred model setting; the existing `VOICE_BACKEND_MODEL` is accepted as a compatibility fallback. No model identifier is hard-coded into View code.
 - Provider credentials, prompts, tracebacks, password hashes, and filesystem paths never reach the View.
 - A user message is saved before the provider call. Successful, fallback, and failed assistant outcomes are saved distinctly.
@@ -124,8 +124,8 @@ Phase 1 is ready for review when evidence shows:
 - the breathing control starts on press and stops on release;
 - a full 60-second sequence and an early release produce distinct persisted states;
 - grounding preserves its five ordered steps and records completion or exit;
-- mock chat succeeds and injected chat failure remains recoverable;
-- OpenAI mode is wired but clearly reported as unverified until a paid call is deliberately approved and suitable reference material is supplied;
+- an injected provider verifies successful persistence and injected chat failure remains recoverable;
+- the OpenAI request contract is fake-client verified but live output remains clearly reported as unverified until a paid call is deliberately approved;
 - conversation and exercise history survive restart;
 - support information opens independently before, during, and after backend/model failure;
 - automated checks, browser observations, and SQLite queries agree;
@@ -138,5 +138,5 @@ The following decisions are adopted for this contract unless changed during revi
 1. Releasing before 60 seconds means `exited`; reaching six cycles means `completed`.
 2. Phase 1 uses a fictional demo user and defers active login.
 3. `conversations` and `exercise_sessions` are added to meet persistence and evidence needs.
-4. Credential-free runs default to mock mode; a configured OpenAI key selects the OpenAI adapter and its server-side model setting.
+4. Production text chat always targets the OpenAI adapter. Credential-free runs expose a recoverable unavailable state; tests inject focused provider doubles without creating a runtime mock mode.
 5. Final jurisdiction-specific crisis-resource content remains blocked on user approval.

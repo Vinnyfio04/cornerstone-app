@@ -16,7 +16,7 @@ The reviewed Phase 1 direction is defined in `docs/phase-1-contract.md`. It expa
 
 1. A hold-to-breathe green circle on the home page, using the four-second inhale and six-second exhale pace.
 2. A prominent 5-4-3-2-1 sensory-grounding page that requires no typing.
-3. A standard text-chat page with deterministic mock mode and an OpenAI Responses API adapter that can be enabled by server configuration.
+3. A standard persisted text-chat page using the server-configured OpenAI Responses API adapter, with focused fake providers limited to automated tests.
 
 Six uninterrupted breathing cycles remain the planned 60-second completion point. Releasing earlier records an exit, stops the visual cue immediately, and prominently offers grounding. The browser measures active time; server timestamps and SQLite records support later evidence. Deterministic application code—not the model—owns exercise order, timing, exits, persistence, failures, and support access.
 
@@ -62,7 +62,7 @@ This run found that the provider-mode label incorrectly remained `mock` after a 
 
 ### Step 13 OpenAI provider migration
 
-The backend now uses the official OpenAI Python SDK and Responses API. It recognizes the existing ignored `.env` names `OPEN_AI_API_KEY` and `VOICE_BACKEND_MODEL`, plus `OPENAI_API_KEY` and `OPENAI_CHAT_MODEL` aliases. A present key selects OpenAI unless `CHAT_PROVIDER` is explicit; no key retains deterministic mock mode. Fake-client tests verify the request shape, 256-token output limit, 15-second timeout, disabled retries, and server-only key passage. No paid request was made and no secret value was printed or changed.
+The backend now uses the official OpenAI Python SDK and Responses API. It recognizes the existing ignored `.env` names `OPEN_AI_API_KEY` and `VOICE_BACKEND_MODEL`, plus `OPENAI_API_KEY` and `OPENAI_CHAT_MODEL` aliases. Step 19 removed the production deterministic-response provider and legacy `CHAT_PROVIDER` selection: runtime text chat always targets OpenAI, while incomplete configuration returns the existing recoverable unavailable result. Fake-client tests verify the multi-turn request shape, `store: false`, 256-token output limit, 15-second timeout, disabled retries, server-only key passage, and key prompt boundaries. No paid request was made and no secret value was printed or changed.
 
 ### Steps 14–15 Live voice increment
 
@@ -70,7 +70,17 @@ FastAPI now exposes public voice readiness and bounded WebRTC SDP exchange witho
 
 The Chat View starts voice only after the microphone action. Its framework-free controller requests audio-only media, creates `oai-events` before the offer, waits for ICE gathering, exchanges SDP through FastAPI, and reports Active only after `session.started`. It exposes permission, connecting, active, muted, closing, closed, error, and autoplay-recovery states. Mute toggles only local microphone tracks; assistant playback, the provider session, and provider usage continue. End stops microphone tracks immediately, sends at most one `session.close` when the transport permits it, waits briefly for `session.closed`, and then releases audio, timers, the data channel, and the peer connection. A late SDP answer after End is used only to close the provider session and cannot restore active UI. Duration expiry, navigation, page exit, component unmount, and the independent support action use the same cleanup boundary. Each completed run starts the next voice conversation with new media and WebRTC resources. Denial and connection failure leave text chat usable. Audio and transient transcript events are not written to SQLite, and the static support route remains independent of model control.
 
-Mocked provider and browser tests cover these contracts without network or billing. A real microphone permission flow, WebRTC negotiation, audio playback, Live event behavior, and paid Responses delegation remain unverified.
+Live transcript presentation reuses the standard chat chain without changing persistence. A framework-free View reducer accepts only bounded input/output transcript deltas with valid Live timeline intervals, preserves each fragment exactly, and keeps per-speaker bubbles independently updateable during overlap. User input marks a currently streaming assistant bubble as interrupted. Assistant output following user input creates a new assistant bubble, while timestamped late fragments can still update the earlier matching bubble. End and failure finalize visible bubbles; a later accepted Start clears them. Persisted typed messages and transient voice bubbles are merged only for display, and voice audio/text never enters the chat API or SQLite.
+
+Mocked provider and browser tests cover these contracts without network or billing, including transcript accumulation, interruption, overlap, late ordering, stale-session rejection, and fresh-session reset. A real microphone permission flow, WebRTC negotiation, audio playback, Live event behavior, transcript accuracy, and paid Responses delegation remain unverified.
+
+### Step 18 past conversation selection
+
+Conversation persistence did not require a schema migration. `conversations` already stores the owning user plus creation/update timestamps, and its related `chat_logs` rows store ordered roles, content, delivery status, and timestamps. The missing behavior was View selection. History now derives a short label from the first user message and links a saved conversation back to Chat. Chat validates the query selection against the active demo user's summaries before requesting its messages, continues sending with that conversation ID, and exposes a separate New conversation action. The first message in a new conversation is persisted immediately through the existing endpoint; no independent Save endpoint or LLM history access was added. Starting a new text conversation ends an active voice session and clears only its transient captions.
+
+### Step 20 reviewed text-chat instruction
+
+Persisted text chat now imports its code-versioned developer instruction from `backend/controllers/services/chat_prompt.py`. The supplied prompt is retained verbatim and sent through the Responses API `instructions` field on every request. It adds explicit client-centered tone, self-report and inference boundaries, one-question/low-cognitive-load response shape, BPD-sensitive communication only when that context is supplied, rupture repair, application-capability limits, a bounded safety pathway, professional/privacy limits, and cultural humility. It continues to identify Cornerstone as a fictional coursework prototype, prohibits therapy/diagnosis/monitoring claims, forbids invented resources and application actions, and leaves exercise workflow to deterministic application code. The voice layer retains separate prompts because its delivery and delegation contract is independently bounded.
 
 ## Product direction
 

@@ -530,5 +530,150 @@ test('a completed End allows a fresh voice conversation', async () => {
   assert.equal(browser.peers.length, 2)
   assert.equal(browser.channels.length, 2)
   assert.notEqual(browser.streams[0], browser.streams[1])
+  assert.deepEqual(controller.getSnapshot().transcriptMessages, [])
+  controller.dispose()
+})
+
+test('streams transcript events into interruptible chat bubbles', async () => {
+  const { browser, controller } = await startActiveController()
+
+  browser.channels[0].emit({
+    type: 'session.output_transcript.delta',
+    delta: 'Let us begin',
+    start_ms: 0,
+    end_ms: 400,
+  })
+  browser.channels[0].emit({
+    type: 'session.input_transcript.delta',
+    delta: 'Wait',
+    start_ms: 350,
+    end_ms: 600,
+  })
+  browser.channels[0].emit({
+    type: 'session.output_transcript.delta',
+    delta: 'I am listening',
+    start_ms: 700,
+    end_ms: 1100,
+  })
+
+  assert.deepEqual(
+    controller
+      .getSnapshot()
+      .transcriptMessages.map(({ role, content, transcript_status: status }) => ({
+        role,
+        content,
+        status,
+      })),
+    [
+      { role: 'assistant', content: 'Let us begin', status: 'interrupted' },
+      { role: 'user', content: 'Wait', status: 'streaming' },
+      { role: 'assistant', content: 'I am listening', status: 'streaming' },
+    ],
+  )
+
+  controller.stop()
+  assert.equal(
+    controller.getSnapshot().transcriptMessages.at(-1).transcript_status,
+    'complete',
+  )
+  browser.channels[0].emit({
+    type: 'session.output_transcript.delta',
+    delta: ' ignored',
+    start_ms: 1100,
+    end_ms: 1200,
+  })
+  assert.equal(controller.getSnapshot().transcriptMessages.at(-1).content, 'I am listening')
+  browser.channels[0].emit({ type: 'session.closed' })
+})
+
+test('does not display transcript events before the session is active', async () => {
+  const browser = createBrowserHarness()
+  const controller = createVoiceSessionController({
+    api: createApiHarness(browser.operations),
+    mediaDevices: browser.mediaDevices,
+    PeerConnection: browser.PeerConnection,
+    getAudioElement: () => browser.audio,
+  })
+
+  await controller.start()
+  browser.channels[0].emit({
+    type: 'session.output_transcript.delta',
+    delta: 'Too early',
+    start_ms: 0,
+    end_ms: 100,
+  })
+
+  assert.deepEqual(controller.getSnapshot().transcriptMessages, [])
+  browser.channels[0].emit({ type: 'session.started' })
+  browser.channels[0].emit({
+    type: 'session.output_transcript.delta',
+    delta: 'Now active',
+    start_ms: 100,
+    end_ms: 200,
+  })
+  assert.equal(controller.getSnapshot().transcriptMessages[0].content, 'Now active')
+  controller.dispose()
+})
+
+test('duplicate Start keeps the current live transcript intact', async () => {
+  const { browser, controller } = await startActiveController()
+  browser.channels[0].emit({
+    type: 'session.input_transcript.delta',
+    delta: 'Still here',
+    start_ms: 0,
+    end_ms: 300,
+  })
+
+  await controller.start()
+
+  assert.equal(controller.getSnapshot().transcriptMessages[0].content, 'Still here')
+  assert.equal(browser.streams.length, 1)
+  controller.dispose()
+})
+
+test('clears transient voice captions when the View starts a new text conversation', async () => {
+  const { browser, controller } = await startActiveController()
+  browser.channels[0].emit({
+    type: 'session.input_transcript.delta',
+    delta: 'Transient caption',
+    start_ms: 0,
+    end_ms: 300,
+  })
+
+  controller.stop()
+  controller.clearTranscript()
+
+  assert.deepEqual(controller.getSnapshot().transcriptMessages, [])
+  browser.channels[0].emit({ type: 'session.closed' })
+  assert.deepEqual(controller.getSnapshot().transcriptMessages, [])
+})
+
+test('ignores events from a stale data channel after a fresh Start', async () => {
+  const browser = createBrowserHarness()
+  const controller = createVoiceSessionController({
+    api: createApiHarness(browser.operations),
+    mediaDevices: browser.mediaDevices,
+    PeerConnection: browser.PeerConnection,
+    getAudioElement: () => browser.audio,
+  })
+
+  await controller.start()
+  browser.channels[0].emit({ type: 'session.started' })
+  const staleMessageHandler = browser.channels[0].onmessage
+  controller.stop()
+  browser.channels[0].emit({ type: 'session.closed' })
+  await controller.start()
+  browser.channels[1].emit({ type: 'session.started' })
+
+  staleMessageHandler({
+    data: JSON.stringify({
+      type: 'session.output_transcript.delta',
+      delta: 'Stale result',
+      start_ms: 0,
+      end_ms: 100,
+    }),
+  })
+
+  assert.deepEqual(controller.getSnapshot().transcriptMessages, [])
   controller.dispose()
 })

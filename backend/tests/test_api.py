@@ -27,7 +27,29 @@ from backend.controllers.api.schemas import (
     UserCreateRequest,
     UserUpdateRequest,
 )
-from backend.controllers.services import MockChatProvider
+from backend.controllers.services import (
+    ModelTimeoutError,
+    ModelUnavailableError,
+    ProviderSettings,
+)
+
+
+class FocusedChatProvider:
+    """Focused provider double; production runtime has no mock response path."""
+
+    mode = "openai"
+    model_ready = True
+
+    def __init__(self, outcome="success"):
+        self.outcome = outcome
+
+    def generate(self, turns):
+        assert turns
+        if self.outcome == "timeout":
+            raise ModelTimeoutError("Injected test timeout")
+        if self.outcome == "unavailable":
+            raise ModelUnavailableError("Injected test failure")
+        return "Focused fake response from the injected API test provider."
 
 
 def response_body(response):
@@ -38,7 +60,10 @@ def response_body(response):
 
 @pytest.fixture
 def api(tmp_path):
-    application = create_app(tmp_path / "cornerstone-api-test.db")
+    application = create_app(
+        tmp_path / "cornerstone-api-test.db",
+        chat_provider=FocusedChatProvider(),
+    )
     database = application.state.database_controller
     database.initialize_schema()
     return application, database
@@ -85,12 +110,12 @@ def test_application_registers_documented_api_boundary(api):
 def test_health_uses_stable_envelope(api):
     application, _ = api
     assert get_health(application.state.chat_service) == {
-        "data": {"status": "ok", "chat_mode": "mock", "model_ready": False},
+        "data": {"status": "ok", "chat_mode": "openai", "model_ready": True},
         "error": None,
     }
 
 
-def test_mock_chat_endpoint_persists_a_conversation(api):
+def test_injected_provider_chat_endpoint_persists_a_conversation(api):
     application, database = api
     user = create_fictional_user(database, "Mock Chat User")
 
@@ -98,13 +123,13 @@ def test_mock_chat_endpoint_persists_a_conversation(api):
         ChatMessageRequest(
             user_id=user["id"],
             conversation_id=None,
-            content="A fictional situation for the deterministic mock.",
+            content="A fictional situation for the injected provider.",
         ),
         application.state.chat_service,
     )
 
     assert response["error"] is None
-    assert response["data"]["chat_mode"] == "mock"
+    assert response["data"]["chat_mode"] == "openai"
     assert response["data"]["user_message"]["role"] == "user"
     assert response["data"]["assistant_message"]["role"] == "assistant"
     assert response["data"]["assistant_message"]["delivery_status"] == "delivered"
@@ -112,6 +137,38 @@ def test_mock_chat_endpoint_persists_a_conversation(api):
         response["data"]["conversation_id"]
     )
     assert [message.role for message in messages] == ["user", "assistant"]
+
+
+def test_unconfigured_production_chat_returns_fallback_instead_of_mock_success(tmp_path):
+    application = create_app(
+        tmp_path / "unconfigured-openai.db",
+        provider_settings=ProviderSettings(),
+    )
+    database = application.state.database_controller
+    database.initialize_schema()
+    user = create_fictional_user(database, "Unconfigured OpenAI User")
+
+    assert get_health(application.state.chat_service) == {
+        "data": {"status": "ok", "chat_mode": "openai", "model_ready": False},
+        "error": None,
+    }
+    response = post_chat_message(
+        ChatMessageRequest(
+            user_id=user["id"],
+            conversation_id=None,
+            content="This must not receive a synthetic successful reply.",
+        ),
+        application.state.chat_service,
+    )
+
+    assert response.status_code == 503
+    assert response_body(response)["error"]["code"] == "model_unavailable"
+    conversation = database.list_conversations(user["id"])[0]
+    messages = database.list_conversation_chat_logs(conversation.id)
+    assert [message.delivery_status for message in messages] == [
+        "delivered",
+        "fallback",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -126,7 +183,7 @@ def test_chat_endpoint_maps_provider_failure_and_saves_fallback(
 ):
     application = create_app(
         tmp_path / f"{outcome}.db",
-        chat_provider=MockChatProvider(outcome),
+        chat_provider=FocusedChatProvider(outcome),
     )
     database = application.state.database_controller
     database.initialize_schema()

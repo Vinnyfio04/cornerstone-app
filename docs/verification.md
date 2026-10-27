@@ -451,3 +451,162 @@ Observed results:
 - Non-fixing Oxc and ESLint checks exited successfully without output.
 - Vite 8.3.4 built `61` modules successfully.
 - No provider request, microphone permission, remote audio, billing behavior, or database write was exercised. These are mocked lifecycle results only.
+
+## Phase 1 Step 17 transient Live transcript bubbles
+
+The Chat View now displays allowlisted GPT-Live input/output transcript deltas in the same visual message chain as persisted text chat without changing the persistence contract. Assistant and user fragments grow their respective bubbles as timestamped deltas arrive. User speech marks the current assistant bubble interrupted, and later assistant speech starts a new bubble. Per-speaker timeline handling keeps overlapping speech independently updateable and routes late fragments to the earlier matching bubble. A bounded same-speaker gap creates a new display bubble because GPT-Live transcript deltas do not include item identifiers or a completed-turn event.
+
+The transcript reducer is framework-free and accepts only nonempty strings of at most 8,000 characters with finite nonnegative `start_ms`/`end_ms` values in order. It preserves accepted fragments exactly. The WebRTC controller generation-guards all incoming events, ignores transcript data after End, finalizes visible bubbles on End/close/error, and clears the transient transcript only for an accepted new Start. Duplicate Start retains the active transcript, while a stale data-channel callback cannot update a later session. Voice messages remain in View memory, are not sent through the chat API, and are not stored in SQLite.
+
+Commands run on 2026-10-27:
+
+```powershell
+Set-Location frontend
+node --test tests/liveTranscript.test.js tests/voiceSession.test.js
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+Set-Location ..
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests\test_voice_api.py -q --basetemp 'backend\.pytest_cache\voice-transcript-tmp'
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\live-transcript-all'
+& 'backend\.venv\Scripts\python.exe' -m pip check
+git diff --check
+```
+
+Observed results:
+
+- The focused transcript/lifecycle run completed with `24` passing tests and `0` failures.
+- The focused backend voice contract completed with `16` passing tests and `0` failures; it now explicitly pins the five allowed server event types, including both transcript deltas.
+- The full frontend suite completed with `44` passing tests and `0` failures.
+- The full backend suite completed with `40` passing tests and `0` failures.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `62` modules successfully.
+- `pip check` reported no broken requirements, and `git diff --check` reported no whitespace errors.
+- No provider request, microphone access, audio playback, paid usage, application-database write, or browser transcript rendering was exercised. The transcript and lifecycle results are focused mocks plus a production compile, not live-provider evidence.
+
+Still unverified after Step 17:
+
+- Real microphone and WebRTC behavior, including the provider's actual transcript timing and accuracy
+- Visual interruption/overlap behavior in a browser receiving real Live events
+- Remote playback, autoplay recovery, Mute/Unmute, End, and microphone release against a paid session
+- Read-only SQLite inspection after that deliberately approved live session
+
+## Phase 1 Step 18 past conversation save/load
+
+The existing persistence model was retained. A `conversations` row stores `id`, `user_id`, `created_at`, and `updated_at`; actual ordered message roles/content/delivery states remain in related `chat_logs` rows. Typed messages already save immediately through `POST /api/chat/messages`, which creates a conversation when `conversation_id` is null and continues one when an owned identifier is supplied.
+
+The View now exposes that persistence as a past-conversation workflow. History derives a bounded label from the first user message, shows message count/update time, and links to Chat with the selected identifier. Chat accepts only positive integer query identifiers found in the active demo user's conversation list, loads that conversation's messages, and continues it on subsequent sends. New conversation clears the current selection, ends and clears transient voice UI if necessary, and lets the existing endpoint create a new persistent record on first send. No LLM access to past conversations, schema migration, dependency change, or separate Save endpoint was added.
+
+Commands run on 2026-10-27:
+
+```powershell
+Set-Location frontend
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+Set-Location ..
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\past-conversations'
+```
+
+Observed results:
+
+- The frontend suite completed with `49` passing tests and `0` failures, including query parsing, explicit saved selection, unavailable selection, newest-default behavior, fresh-conversation selection, and transient-caption clearing.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `63` modules successfully.
+- The backend suite completed with `40` passing tests and `0` failures, including the existing persisted new/continued conversation and history contracts.
+- No dependency, schema, provider, microphone, or paid-call change was made.
+- Browser clicking and a new read-only SQLite inspection were not performed in this automated pass; the persistence controller/API behavior is covered by existing backend tests, while the new routing helpers are unit-tested and the Vue integration production-builds successfully.
+
+## Phase 1 Step 19 OpenAI-only text-chat runtime
+
+Production text chat no longer contains or selects a deterministic success response. `build_chat_provider` always creates the OpenAI Responses adapter, including when credentials are absent. Incomplete configuration therefore preserves the user message and fallback record and returns the existing recoverable `model_unavailable` response; it cannot silently appear successful. The obsolete `CHAT_PROVIDER=mock` setting has no runtime effect. Repeatable tests continue to inject small provider doubles directly through the application/service boundary.
+
+The server-owned text instruction was aligned with the documented coursework boundary: fictional scenarios, calm and concise language, self-reported facts only, no diagnosis/therapy/monitoring claims, one follow-up question at most, no invented crisis resources, and application ownership of exercise workflow. The adapter passes bounded multi-turn `user`/`assistant` input to the configured model, requests at most 256 output tokens, uses a 15-second timeout with retries disabled, and sets `store: false`. The View now describes the OpenAI connection instead of presenting mock mode as normal behavior.
+
+Commands run on 2026-10-27:
+
+```powershell
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests\test_chat_service.py backend\tests\test_api.py -q --basetemp 'backend\.pytest_cache\openai-chat-focused-final'
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\openai-chat-all-final'
+& 'backend\.venv\Scripts\python.exe' -m pip check
+Set-Location frontend
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+```
+
+Observed results:
+
+- The focused text-chat controller/API run completed with `21` passing tests and `0` failures.
+- The full backend suite completed with `42` passing tests and `0` failures.
+- The full frontend suite completed with `49` passing tests and `0` failures.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `63` modules successfully.
+- `pip check` reported no broken requirements.
+- No OpenAI network request, paid usage, browser send, or response-quality evaluation was performed. The API request evidence comes from a fake SDK client, not a live model.
+
+Still unverified after Step 19:
+
+- One deliberately approved live text request using the configured key/model, including provider availability, billing, latency, response quality, and provider-side handling beyond the request's `store: false` setting
+- The fifteen-scenario language-quality and safety evaluation required before claiming that the prompt behavior is suitable
+- Integration of `backend/models/data/intents.json`; its provenance and suitability still require review, so it is not sent to the model
+- Browser confirmation after restarting the currently running FastAPI process with the intended `.env`
+
+## Phase 1 Step 20 supplied text-chat instruction
+
+The user-supplied Cornerstone instruction is stored verbatim in `backend/controllers/services/chat_prompt.py` and imported by the OpenAI text adapter. It remains controller-owned and never enters the View or an API response. Each Responses request supplies it through the top-level `instructions` field while bounded user/assistant history remains separate `input`. The existing 256-token output bound, `store: false`, timeout, retry, persistence, and sanitized-failure contracts are unchanged. Live voice continues to use its separately reviewed delivery/delegation prompts.
+
+Commands run on 2026-10-27:
+
+```powershell
+& 'backend\.venv\Scripts\python.exe' -c "from pathlib import Path; from backend.controllers.services.chat_prompt import SYSTEM_INSTRUCTION; source=Path(r'C:\Users\Owner\.codex\attachments\5761bf1c-2d5b-4cad-9ddf-06c726d10f50\Pasted text.txt').read_text(encoding='utf-8'); print('EXACT_MATCH', SYSTEM_INSTRUCTION == source); print('PROMPT_CHARS', len(SYSTEM_INSTRUCTION))"
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests\test_chat_service.py -q --basetemp 'backend\.pytest_cache\chat-prompt-focused'
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\chat-prompt-all'
+& 'backend\.venv\Scripts\python.exe' -m pip check
+git diff --check
+```
+
+Observed results:
+
+- The source comparison reported `EXACT_MATCH True` for all `13,872` prompt characters.
+- The focused text-provider suite completed with `11` passing tests and `0` failures.
+- The full backend suite completed with `42` passing tests and `0` failures.
+- `pip check` reported no broken requirements, and `git diff --check` reported no whitespace errors.
+- No OpenAI response request, paid usage, frontend behavior, voice behavior, or prompt-quality evaluation was exercised.
+
+Still unverified after Step 20:
+
+- Live model adherence to the supplied instruction and the required fifteen-scenario language/safety evaluation
+- Whether the 256-token output bound is sufficient for every safety-pathway response
+- Integration of `backend/models/data/intents.json`, which remains excluded pending provenance and suitability review
+
+## Phase 1 Step 21 optimistic typed-message display
+
+Chat now appends a transient user message to the rendered message list before awaiting `POST /api/chat/messages`. The transient record has a collision-resistant local identifier, a server-compatible timestamp, and `delivery_status: pending`, which is presented as `Sending…` and exposed as busy to assistive technology. A successful response replaces that exact pending entry in place with the persisted user and assistant records. A failed request removes the pending entry before the existing recovery load, so saved fallback records remain authoritative and a second transport failure cannot leave a stale sending indicator.
+
+Commands run on 2026-10-27:
+
+```powershell
+Set-Location frontend
+node --test tests\optimisticChat.test.js
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+```
+
+Observed results:
+
+- The focused optimistic-message suite completed with `4` passing tests and `0` failures, covering immediate creation, success reconciliation without duplication, an already-removed pending record, and failure removal.
+- The full frontend suite completed with `53` passing tests and `0` failures.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `64` modules successfully, and the running development server accepted HMR updates for Chat and the message component.
+- No provider request, database write, or paid usage was initiated by these checks.
+
+Still unverified after Step 21:
+
+- A manual browser send observed under deliberately throttled provider/network latency
+- Visual and screen-reader confirmation of the brief `Sending…` state before a fast response arrives

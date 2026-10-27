@@ -107,7 +107,7 @@ All endpoints are rooted at `/api`. Successful responses use the shared `data`/`
 {
   "data": {
     "status": "ok",
-    "chat_mode": "mock",
+    "chat_mode": "openai",
     "model_ready": false
   },
   "error": null
@@ -221,7 +221,7 @@ When `conversation_id` is null, the controller creates a conversation. The respo
       "delivery_status": "delivered",
       "created_at": "timestamp"
     },
-    "chat_mode": "mock"
+    "chat_mode": "openai"
   },
   "error": null
 }
@@ -229,13 +229,15 @@ When `conversation_id` is null, the controller creates a conversation. The respo
 
 On provider failure, the user message remains saved and an assistant failure or fallback record is saved. The response uses `model_unavailable` or `model_timeout`; it may include a deterministic public fallback message but never raw provider output or a traceback.
 
-The chat service accepts at most 2,000 characters per user message, retains at most 12 recent messages and 8,000 context characters, requests at most 256 output tokens, stores at most 4,000 assistant-response characters, and configures a 15-second provider timeout with SDK retries disabled. Mock mode is deterministic. OpenAI mode accepts server-side `OPEN_AI_API_KEY` or `OPENAI_API_KEY` and resolves the model from `OPENAI_CHAT_MODEL` or the existing `VOICE_BACKEND_MODEL`; none of these values is returned to the View. When no provider is explicit, a present key selects OpenAI and no key selects mock. The current system instruction is a small behavioral boundary, not supplied therapy-conversation material. No missing reference conversations are generated.
+The chat service accepts at most 2,000 characters per user message, retains at most 12 recent messages and 8,000 context characters, requests at most 256 output tokens, stores at most 4,000 assistant-response characters, and configures a 15-second provider timeout with SDK retries disabled. Production chat always uses the OpenAI Responses adapter, sends `store: false`, accepts server-side `OPEN_AI_API_KEY` or `OPENAI_API_KEY`, and resolves the model from `OPENAI_CHAT_MODEL` or the existing `VOICE_BACKEND_MODEL`; none of these values is returned to the View. Missing configuration returns `model_unavailable` after saving the user message and fallback record. Focused provider doubles are injected only by automated tests. The reviewed server-owned instruction lives in `backend/controllers/services/chat_prompt.py` and is supplied on every text response request; user messages and bounded history remain separate lower-priority input. The prompt does not add supplied conversation-reference data, and no missing reference conversations are generated.
 
 ### Conversation history
 
 `GET /api/users/{user_id}/conversations` returns conversation summaries ordered newest first.
 
 `GET /api/conversations/{conversation_id}/messages` returns public message objects ordered by increasing identifier.
+
+The History View combines these existing read endpoints to present past text conversations. It derives a display preview from the first saved user message without adding a title column. **Open conversation** routes to `/chat?conversation={id}`; before loading messages, Chat confirms that the requested identifier is present in the active demo user's conversation summaries. `/chat?new=1` clears the current View selection and uses `conversation_id: null` for the next message, causing the existing chat controller to create a new persistent conversation. After creation, Chat replaces the route query with the returned conversation identifier. Messages save immediately through the chat endpoint; there is no separate unsaved draft record or Save endpoint. Live audio and transient voice captions remain excluded.
 
 ### Voice configuration and session exchange
 
@@ -272,7 +274,9 @@ Its successful response contains only the validated Live session identifier, Web
 }
 ```
 
-The View creates an `oai-events` data channel before its offer, waits for ICE gathering, and reports `active` only after `session.started`. Mute changes only local audio-track enablement; it does not stop assistant playback or the provider session. End stops microphone tracks immediately, sends at most one `session.close` when possible, waits briefly for `session.closed`, and then closes audio, timers, the data channel, and the peer connection. Late SDP answers after End may be applied only to send the close event and must not reactivate stale UI. Duplicate Start and repeated End are ignored. Duration expiry, route navigation, page exit, component unmount, and the independent support action clean up the current session, and a later Start uses fresh media and peer resources. The API key, models, prompts, provider URL, tools, and policy remain server-owned. The View must reject or ignore no server configuration because its request schema permits only `sdp_offer`. Voice audio and transient transcript events are not written to SQLite in this increment. The static `/support` route remains View-owned and independent of voice state or model behavior.
+The View creates an `oai-events` data channel before its offer, waits for ICE gathering, and reports `active` only after `session.started`. It accepts `session.input_transcript.delta` and `session.output_transcript.delta` only as transient View events. Each valid event must contain a nonempty bounded string `delta` and finite, nonnegative `start_ms`/`end_ms` values with `end_ms >= start_ms`. The View appends fragments exactly as received and uses the provider timeline rather than arrival order to group overlapping or late fragments. User speech finishes the current assistant bubble as interrupted; later assistant speech starts a new assistant bubble. A bounded same-speaker timeline gap may start another bubble because Live supplies no item identifier or completed-turn event.
+
+Mute changes only local audio-track enablement; it does not stop assistant playback or the provider session. End stops microphone tracks immediately, sends at most one `session.close` when possible, waits briefly for `session.closed`, and then closes audio, timers, the data channel, and the peer connection. End, close, error, and duration expiry finalize current transcript bubbles. Late SDP answers after End may be applied only to send the close event and must not reactivate stale UI. Transcript events from an older session generation are ignored. Duplicate Start and repeated End are ignored. Duration expiry, route navigation, page exit, component unmount, and the independent support action clean up the current session, and a later Start uses fresh media, peer resources, and an empty transient transcript. The API key, models, prompts, provider URL, tools, and policy remain server-owned. The View must reject or ignore no server configuration because its request schema permits only `sdp_offer`. Voice audio and transient transcript events are never added to chat request payloads or written to SQLite. The static `/support` route remains View-owned and independent of voice state or model behavior.
 
 ### Stable Phase 1 error codes
 

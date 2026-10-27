@@ -1,4 +1,4 @@
-"""Bounded mock and OpenAI provider adapters for controller-owned chat."""
+"""Bounded OpenAI provider adapter for controller-owned chat."""
 
 from __future__ import annotations
 
@@ -9,23 +9,11 @@ from typing import Protocol
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
+from .chat_prompt import SYSTEM_INSTRUCTION
+
 
 MAX_OUTPUT_TOKENS = 256
 REQUEST_TIMEOUT_SECONDS = 15.0
-
-SYSTEM_INSTRUCTION = (
-    "Cornerstone is a coursework prototype, not therapy, diagnosis, monitoring, "
-    "or an emergency service. Respond to fictional scenarios with calm, respectful, "
-    "concise language. Do not diagnose, claim that anyone is monitoring the user, "
-    "or invent crisis contact information. You may suggest the application's "
-    "deterministic breathing or 5-4-3-2-1 grounding exercises."
-)
-
-MOCK_RESPONSE = (
-    "Thanks for sharing that fictional scenario. You can take this one step at a "
-    "time. If it helps, return to the breathing or 5-4-3-2-1 grounding exercise."
-)
-
 
 @dataclass(frozen=True, slots=True)
 class ChatTurn:
@@ -35,7 +23,6 @@ class ChatTurn:
 
 @dataclass(frozen=True, slots=True)
 class ProviderSettings:
-    mode: str = "mock"
     api_key: str | None = None
     model: str | None = None
 
@@ -54,11 +41,7 @@ class ProviderSettings:
             or values.get("VOICE_BACKEND_MODEL")
             or ""
         ).strip() or None
-        configured_mode = (values.get("CHAT_PROVIDER") or "").strip().lower()
-        mode = configured_mode or ("openai" if api_key else "mock")
-        if mode not in {"mock", "openai"}:
-            raise ValueError("CHAT_PROVIDER must be 'mock' or 'openai'")
-        return cls(mode=mode, api_key=api_key, model=model)
+        return cls(api_key=api_key, model=model)
 
 
 class ModelUnavailableError(RuntimeError):
@@ -76,29 +59,6 @@ class ChatProvider(Protocol):
     def model_ready(self) -> bool: ...
 
     def generate(self, turns: Sequence[ChatTurn]) -> str: ...
-
-
-class MockChatProvider:
-    """Deterministic provider used by default and in automated checks."""
-
-    mode = "mock"
-
-    def __init__(self, outcome: str = "success") -> None:
-        if outcome not in {"success", "unavailable", "timeout"}:
-            raise ValueError("Unsupported mock provider outcome")
-        self.outcome = outcome
-
-    @property
-    def model_ready(self) -> bool:
-        return False
-
-    def generate(self, turns: Sequence[ChatTurn]) -> str:
-        del turns
-        if self.outcome == "timeout":
-            raise ModelTimeoutError("Injected mock timeout")
-        if self.outcome == "unavailable":
-            raise ModelUnavailableError("Injected mock failure")
-        return MOCK_RESPONSE
 
 
 class OpenAIChatProvider:
@@ -135,6 +95,7 @@ class OpenAIChatProvider:
                 instructions=SYSTEM_INSTRUCTION,
                 input=input_messages,
                 max_output_tokens=MAX_OUTPUT_TOKENS,
+                store=False,
             )
             text = (response.output_text or "").strip()
         except APITimeoutError as error:
@@ -156,6 +117,4 @@ class OpenAIChatProvider:
 
 
 def build_chat_provider(settings: ProviderSettings) -> ChatProvider:
-    if settings.mode == "mock":
-        return MockChatProvider()
     return OpenAIChatProvider(settings.api_key, settings.model)

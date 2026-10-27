@@ -15,17 +15,23 @@ export function getBreathingSnapshot(elapsedMs) {
       cycle: BREATHING_CYCLE_COUNT,
       measuredActiveDurationMs,
       phase: 'complete',
+      phaseProgressPercent: 100,
       progressPercent: 100,
     }
   }
 
   const cycleElapsedMs = measuredActiveDurationMs % BREATHING_CYCLE_DURATION_MS
+  const phase = cycleElapsedMs < INHALE_DURATION_MS ? 'inhale' : 'exhale'
+  const phaseElapsedMs =
+    phase === 'inhale' ? cycleElapsedMs : cycleElapsedMs - INHALE_DURATION_MS
+  const phaseDurationMs = phase === 'inhale' ? INHALE_DURATION_MS : EXHALE_DURATION_MS
 
   return {
     completed: false,
     cycle: Math.floor(measuredActiveDurationMs / BREATHING_CYCLE_DURATION_MS) + 1,
     measuredActiveDurationMs,
-    phase: cycleElapsedMs < INHALE_DURATION_MS ? 'inhale' : 'exhale',
+    phase,
+    phaseProgressPercent: (phaseElapsedMs / phaseDurationMs) * 100,
     progressPercent: (measuredActiveDurationMs / BREATHING_TOTAL_DURATION_MS) * 100,
   }
 }

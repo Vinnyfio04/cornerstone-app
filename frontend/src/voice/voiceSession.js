@@ -1,3 +1,10 @@
+import {
+  appendLiveTranscriptDelta,
+  createLiveTranscriptState,
+  finalizeLiveTranscript,
+  resetLiveTranscript,
+} from './liveTranscript.js'
+
 const CLOSE_FALLBACK_MS = 1500
 const ICE_GATHERING_TIMEOUT_MS = 10000
 
@@ -73,7 +80,9 @@ export function createVoiceSessionController({
     errorMessage: '',
     needsPlayback: false,
     durationSeconds: null,
+    transcriptMessages: [],
   }
+  let transcriptState = createLiveTranscriptState()
   let runId = 0
   let localStream = null
   let peerConnection = null
@@ -93,11 +102,16 @@ export function createVoiceSessionController({
       ...patch,
     }
     snapshot.statusLabel = VOICE_STATUS_LABELS[snapshot.status]
-    onChange({ ...snapshot })
+    onChange({ ...snapshot, transcriptMessages: [...snapshot.transcriptMessages] })
   }
 
   function getSnapshot() {
-    return { ...snapshot }
+    return { ...snapshot, transcriptMessages: [...snapshot.transcriptMessages] }
+  }
+
+  function finalizeTranscript() {
+    transcriptState = finalizeLiveTranscript(transcriptState)
+    return transcriptState.messages
   }
 
   function clearTimers() {
@@ -173,6 +187,7 @@ export function createVoiceSessionController({
   }
 
   function finishClosed() {
+    const transcriptMessages = finalizeTranscript()
     runId += 1
     releaseResources()
     update({
@@ -180,10 +195,12 @@ export function createVoiceSessionController({
       errorMessage: '',
       needsPlayback: false,
       durationSeconds: null,
+      transcriptMessages,
     })
   }
 
   function fail(error) {
+    const transcriptMessages = finalizeTranscript()
     runId += 1
     releaseResources()
     update({
@@ -191,6 +208,7 @@ export function createVoiceSessionController({
       errorMessage: publicStartError(error),
       needsPlayback: false,
       durationSeconds: null,
+      transcriptMessages,
     })
   }
 
@@ -208,7 +226,11 @@ export function createVoiceSessionController({
     }
   }
 
-  function handleServerEvent(messageEvent) {
+  function handleServerEvent(messageEvent, currentRun) {
+    if (currentRun !== runId) {
+      return
+    }
+
     let event
     try {
       event = JSON.parse(messageEvent.data)
@@ -222,6 +244,20 @@ export function createVoiceSessionController({
       !endRequested
     ) {
       update({ status: 'active' })
+      return
+    }
+    if (
+      !endRequested &&
+      ['active', 'muted'].includes(snapshot.status) &&
+      ['session.input_transcript.delta', 'session.output_transcript.delta'].includes(
+        event.type,
+      )
+    ) {
+      const nextTranscriptState = appendLiveTranscriptDelta(transcriptState, event)
+      if (nextTranscriptState !== transcriptState) {
+        transcriptState = nextTranscriptState
+        update({ transcriptMessages: transcriptState.messages })
+      }
       return
     }
     if (event.type === 'session.closed') {
@@ -241,23 +277,28 @@ export function createVoiceSessionController({
     if (['permission', 'connecting', 'active', 'muted', 'closing'].includes(snapshot.status)) {
       return
     }
-    if (!api || !mediaDevices?.getUserMedia || !PeerConnection) {
-      fail(new Error('Voice APIs are unavailable'))
-      return
-    }
 
     releaseResources()
     const currentRun = ++runId
+    transcriptState = resetLiveTranscript(transcriptState, {
+      sessionId: currentRun,
+      sessionStartedAtMs: Date.now(),
+    })
     sessionRequestPending = false
     sessionCreated = false
     remoteApplied = false
     closeSent = false
     endRequested = false
+    if (!api || !mediaDevices?.getUserMedia || !PeerConnection) {
+      fail(new Error('Voice APIs are unavailable'))
+      return
+    }
     update({
       status: 'permission',
       errorMessage: '',
       needsPlayback: false,
       durationSeconds: null,
+      transcriptMessages: transcriptState.messages,
     })
 
     try {
@@ -286,7 +327,7 @@ export function createVoiceSessionController({
           sendSessionClose('late_open')
         }
       }
-      eventChannel.onmessage = handleServerEvent
+      eventChannel.onmessage = (event) => handleServerEvent(event, currentRun)
       eventChannel.onerror = () => {
         if (endRequested) {
           finishClosed()
@@ -405,7 +446,11 @@ export function createVoiceSessionController({
 
     endRequested = true
     stopMicrophone()
-    update({ status: 'closing', errorMessage: '' })
+    update({
+      status: 'closing',
+      errorMessage: '',
+      transcriptMessages: finalizeTranscript(),
+    })
     const providerMayExist = remoteApplied || sessionCreated || sessionRequestPending
     sendSessionClose()
     if (providerMayExist) {
@@ -419,6 +464,14 @@ export function createVoiceSessionController({
     await tryPlayback()
   }
 
+  function clearTranscript() {
+    transcriptState = resetLiveTranscript(transcriptState, {
+      sessionId: runId,
+      sessionStartedAtMs: Date.now(),
+    })
+    update({ transcriptMessages: transcriptState.messages })
+  }
+
   function dispose() {
     endRequested = true
     stopMicrophone()
@@ -427,9 +480,10 @@ export function createVoiceSessionController({
     releaseResources()
   }
 
-  onChange({ ...snapshot })
+  onChange({ ...snapshot, transcriptMessages: [...snapshot.transcriptMessages] })
 
   return {
+    clearTranscript,
     dispose,
     enableAudio,
     getSnapshot,

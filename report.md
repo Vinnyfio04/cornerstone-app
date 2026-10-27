@@ -1,187 +1,138 @@
 # Milestone Report
 
+## Repository
 
+[https://github.com/Vinnyfio04/cornerstone-app](https://github.com/Vinnyfio04/cornerstone-app)
 
-Created the general file framework for the project to lead into an easy early implementation phase. No major files were created. Mainly the folder structure and framework, project workflow, and requirements for both the project and the agent.
+Submitted commit: **[Add final submitted commit hash]**
 
+## Scope
 
+For this version, I focused on making the main parts of the application work together. The application includes 4–6 paced breathing, 5-4-3-2-1 sensory grounding, chat, saved history, a fictional demo account, and a separate crisis-support route.
 
-## Repository URL
+Cornerstone is a coursework prototype that is tested with fictional situations. It is not therapy, a diagnosis tool, an emergency service, or a replacement for professional care.
 
+## Working Experience
 
+The main experience begins in the Vue interface. The home page includes a breathing exercise, a link to sensory grounding, and a link to chat. The application also has pages for History, Account, and crisis-support information.
 
-[https://github.com/Vinnyfio04/cornerstone-app.git](https://github.com/Vinnyfio04/cornerstone-app.git)
+The paced-breathing exercise uses a four-second inhale and six-second exhale for six cycles. The sensory-grounding exercise moves through five things to see, four to feel, three to hear, two to smell, and one to taste. Both exercises measure active time and save a completed or exited result through FastAPI and SQLite.
 
+The application controls the exercise order, timing, saved state, exit controls, and access to crisis-support information. These parts do not depend on a model response.
 
+## Model Contribution
 
-## Submitted Version Commit
+Text chat uses a deterministic mock provider by default and can use the OpenAI Responses API when the server has the required configuration. The model is limited to the conversation. It does not create the exercise steps, decide when an exercise is complete, control the timer, or control the crisis-support route.
 
+The backend owns the provider configuration and limits the context, response size, and timeout. Public errors do not expose credentials, internal prompts, tracebacks, or server paths. User messages and assistant results are saved with separate delivery states.
 
+The Chat page also contains an optional microphone button and a WebRTC voice-session controller. The backend has a server-owned `gpt-live-1` session boundary with Responses delegation. The voice lifecycle, transcript handling, interruption, mute, ending, and cleanup behavior are currently verified with mocks. A real microphone and paid provider session have not been verified.
 
-e7baca0f0a001550a1a1709cdf6ca684cef3afa3
+## Conversation and Session Persistence
 
+Conversation messages and exercise sessions are stored in SQLite. The History page lists paced-breathing and sensory-grounding sessions and groups saved messages into conversations. A saved conversation can be opened again from History.
 
+Conversation records store the fictional user, message order, role, content, and delivery state. Exercise records store the skill, completed or exited status, planned duration when one exists, measured active duration, timestamps, and last step reached.
 
-## Design Documents
+The current database also contains the users, login, conversations, chat logs, and exercise sessions tables. Read-only inspection found saved fictional conversation and exercise records with no foreign-key violations. The login table exists, but active login and authentication are not part of this version.
 
+## Exercise Duration
 
+The browser measures exercise time with its monotonic clock. For sensory grounding, timing starts when the first prompt is shown and ends when the exercise is finished or left. For paced breathing, timing starts when the breathing control is pressed and ends when it is released or all six cycles are complete.
 
-* Approach
+The paced-breathing sequence has a planned duration of 60 seconds. Sensory grounding is self-paced and does not force the user to finish. The interface displays the measured result, and the same duration is saved with the exercise session in SQLite. Entry time before an exercise begins is not included in the active duration.
 
-  * I will implement an application that focuses on urgent situations in which someone with a mental health condition can have some form of quick way to bring them back to reality
+## Leaving an Exercise
 
+Neither exercise forces a user to finish. Releasing the breathing control before the sixth cycle saves an exited breathing session. The grounding page has a Leave exercise button, and navigating away during an active grounding exercise also ends it as exited. The result includes the measured duration and last phase or step reached.
 
-Image of Wireframe: https://drive.google.com/file/d/1Rt3Ja9J6wsyq5pNrmSQqCiWSMqft\_LFC/view?usp=sharing
+## Request Failure
 
-* I could not get Figma working, so I used paint.net
+The interface has recoverable failure states for backend and provider requests. If FastAPI is unavailable, the application reports that activity cannot be saved, but the two browser-controlled exercises remain usable. The user can retry the connection.
 
+If a chat request fails, the Chat page provides Retry message and Reload saved messages controls. A provider failure keeps the user message and saves a fallback assistant result. A transport failure that never reaches the backend does not create an additional chat row. Navigation and the crisis-support link remain available in both cases.
 
+## Independent Crisis-Support Route
 
-## Verification Evidence
+Crisis-support information has its own `/support` route in the Vue interface. A persistent link appears in the application header, including during loading and failure states. The route does not depend on a model response, classifier, FastAPI request, or SQLite query.
 
+The route currently contains placeholder information because final jurisdiction-specific crisis resources have not been reviewed or approved. Opening the support route also cleans up an active voice session without making the route depend on voice or model behavior.
 
+## Browser and Database Evidence
 
-There is no evidence of verification as of yet since nothing has truly been implemented other than the framework. The main verification is the general structure of the front and backend.
+The application uses the following flow:
 
+Vue interface → frontend request code → FastAPI controller → application logic → SQLite → JSON response → Vue interface
 
+The documented browser walkthrough includes:
+
+- Completing paced breathing and sensory grounding.
+- Leaving both exercises early and saving exited results.
+- Comparing the displayed durations and last steps with SQLite.
+- Saving a fictional mock conversation and reloading it through History.
+- Restarting FastAPI and finding the saved activity again.
+- Showing chat recovery controls while FastAPI or the provider is unavailable.
+- Opening crisis-support information during a request failure.
+- Checking SQLite for foreign-key violations.
+
+### Screenshot Evidence
+
+- Completed exercise and displayed duration: **[Add screenshot link]**
+- Matching completed exercise row in SQLite: **[Add screenshot link]**
+- Fictional chat response and saved History entry: **[Add screenshot link]**
+- Matching conversation rows in SQLite: **[Add screenshot link]**
+- Exited exercise and matching SQLite row: **[Add screenshot link]**
+- Failed request with recovery controls: **[Add screenshot link]**
+- Crisis-support route opened during the failure: **[Add screenshot link]**
+
+## Verification
+
+The current project checks completed with:
+
+- 40 backend tests passed.
+- 49 frontend tests passed.
+- Oxc and ESLint completed without errors.
+- The Vite production build completed with 63 modules transformed.
+- `pip check` found no broken Python requirements.
+- Read-only SQLite inspection found no foreign-key violations.
+
+The automated model and voice tests use fake or mocked providers and do not make paid calls. Earlier browser walkthroughs verified the text, exercise, history, failure, and support flows. A current live OpenAI response, real microphone session, and saved final walkthrough recording have not been verified.
 
 ## Completed Work
 
-
-
-The file structure is so:
-
-
-
-cornerstone-app/
-
-├── AGENTS.md
-
-├── README.md
-
-├── report.md
-
-├── backend/
-
-│   ├── requirements.txt
-
-│   └── .venv/                  # Generated Python environment
-
-├── docs/
-
-│   ├── assignment\_instructions.md
-
-│   ├── design-pipeline.md
-
-│   └── design\_notes.md
-
-├── frontend/
-
-│   ├── .vscode/
-
-│   │   ├── extensions.json
-
-│   │   └── settings.json
-
-│   ├── public/
-
-│   │   └── favicon.ico
-
-│   ├── src/
-
-│   │   ├── assets/
-
-│   │   │   ├── base.css
-
-│   │   │   ├── logo.svg
-
-│   │   │   └── main.css
-
-│   │   ├── components/
-
-│   │   │   ├── icons/
-
-│   │   │   │   ├── IconCommunity.vue
-
-│   │   │   │   ├── IconDocumentation.vue
-
-│   │   │   │   ├── IconEcosystem.vue
-
-│   │   │   │   ├── IconSupport.vue
-
-│   │   │   │   └── IconTooling.vue
-
-│   │   │   ├── HelloWorld.vue
-
-│   │   │   ├── TheWelcome.vue
-
-│   │   │   └── WelcomeItem.vue
-
-│   │   ├── App.vue
-
-│   │   └── main.js
-
-│   ├── dist/                   # Generated production build
-
-│   ├── node\_modules/           # Generated dependencies
-
-│   ├── eslint.config.js
-
-│   ├── index.html
-
-│   ├── jsconfig.json
-
-│   ├── package-lock.json
-
-│   ├── package.json
-
-│   ├── README.md
-
-│   └── vite.config.js
-
-├── handoffs/
-
-│   ├── create-handoff.md
-
-│   └── current.md
-
-└── prompts/
-
-&#x20;   ├── 01-bounded-scaffold.md
-
-&#x20;   ├── 02-backend-environment.md
-
-&#x20;   ├── 03-frontend-environment.md
-
-&#x20;   └── 04-complete-scaffold-verification.md
-
-
-
-The project workflow is:
-
-
-
-User → Vue UI → frontend request module → FastAPI
-
-→ domain/service logic → persistence/model/workflow
-
-→ JSON response → Vue UI
-
-
-
-## Evidence Summary
-
-
-
-Tested basic file system. The file structure matches the initial state of the project.
-
-
-
-## Unresolved Items
-
-
-
-Making the first implementation of backend and frontend.
-
-
+This version includes:
+
+- Six Vue routes for Home, Grounding, Chat, History, Account, and crisis support.
+- A 60-second 4–6 paced-breathing exercise with pointer and keyboard controls.
+- A complete 5-4-3-2-1 sensory-grounding exercise with Back, Next, Finish, and Leave controls.
+- Measured completed and exited exercise sessions saved in SQLite.
+- Text chat with deterministic mock and configurable OpenAI providers.
+- Saved conversations that can be reviewed and reopened through History.
+- A fictional local demo account with an editable display name.
+- Recoverable backend and provider failure states.
+- A static crisis-support route that remains separate from the model.
+- An optional voice-session interface with mocked backend and browser coverage.
+
+## Unfinished Work
+
+The remaining planned work includes:
+
+- Adding reviewed jurisdiction-specific information to the crisis-support page.
+- Replacing the fictional demo account with active registration, login, and authenticated sessions if authentication remains in the final scope.
+- Expanding personalization beyond the saved display name and history.
+- Adding reviewed conversation reference material if it is provided and approved.
+- Completing final interface and accessibility refinements.
+
+Live text and voice provider behavior still needs a deliberately approved check. Real microphone permission, WebRTC audio, interruption, mute, close behavior, and provider response quality have not been verified in a live session. These are verification limits on implemented voice code rather than claims that the live behavior already works.
+
+The fifteen-scenario evaluation, final screenshots, demonstration recording, and process recording also remain to be completed for the final submission.
+
+## Design and Verification Documents
+
+- [Initial wireframe](https://drive.google.com/file/d/1Rt3Ja9J6wsyq5pNrmSQqCiWSMqft_LFC/view?usp=sharing)
+- [README](README.md)
+- [Phase 1 contract](docs/phase-1-contract.md)
+- [MVC contracts](docs/mvc-contracts.md)
+- [Design notes](docs/design_notes.md)
+- [Verification record](docs/verification.md)
 

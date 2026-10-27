@@ -24,7 +24,6 @@ function finishBreathingPersistence(result) {
     <header class="home-introduction">
       <p class="eyebrow">Start here</p>
       <h1>Take one steady moment.</h1>
-      <p>Choose a simple grounding exercise now, or move to conversation when you are ready.</p>
     </header>
 
     <BreathingCircle

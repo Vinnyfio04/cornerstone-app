@@ -224,6 +224,13 @@ def test_session_creation_uses_bounded_server_owned_contract(tmp_path):
         "allowed_client_events": list(ALLOWED_CLIENT_EVENTS),
         "allowed_server_events": [dict(event) for event in ALLOWED_SERVER_EVENTS],
     }
+    assert ALLOWED_SERVER_EVENTS == (
+        {"type": "session.started"},
+        {"type": "session.input_transcript.delta"},
+        {"type": "session.output_transcript.delta"},
+        {"type": "session.closed"},
+        {"type": "error"},
+    )
     assert set(response["data"]) == {
         "session_id",
         "sdp_answer",
