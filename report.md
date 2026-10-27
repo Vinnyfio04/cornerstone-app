@@ -2,7 +2,7 @@
 
 ## Repository
 
-[https://github.com/Vinnyfio04/cornerstone-app](https://github.com/Vinnyfio04/cornerstone-app)
+[https://github.com/Vinnyfio04/cornerstone-app]
 
 Submitted commit: **[Add final submitted commit hash]**
 
@@ -74,16 +74,6 @@ The documented browser walkthrough includes:
 - Showing chat recovery controls while FastAPI or the provider is unavailable.
 - Opening crisis-support information during a request failure.
 - Checking SQLite for foreign-key violations.
-
-### Screenshot Evidence
-
-- Completed exercise and displayed duration: **[Add screenshot link]**
-- Matching completed exercise row in SQLite: **[Add screenshot link]**
-- Fictional chat response and saved History entry: **[Add screenshot link]**
-- Matching conversation rows in SQLite: **[Add screenshot link]**
-- Exited exercise and matching SQLite row: **[Add screenshot link]**
-- Failed request with recovery controls: **[Add screenshot link]**
-- Crisis-support route opened during the failure: **[Add screenshot link]**
 
 ## Verification
 
