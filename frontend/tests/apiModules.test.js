@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { createAccountsApi } from '../src/api/accounts.js'
 import { createChatApi } from '../src/api/chat.js'
+import { createCheckInsApi } from '../src/api/checkIns.js'
 import { createSessionsApi } from '../src/api/sessions.js'
 import { createUsersApi } from '../src/api/users.js'
 import { createVoiceApi } from '../src/api/voice.js'
@@ -17,12 +19,59 @@ function recordingClient() {
   }
 }
 
+test('maps account registration, login, update, and deletion to account endpoints', async () => {
+  const client = recordingClient()
+  const api = createAccountsApi(client)
+
+  await api.register({
+    username: 'account-user',
+    firstName: 'Account',
+    lastName: 'User',
+    password: 'password-1',
+  })
+  await api.login('account-user', 'password-1')
+  await api.get(4)
+  await api.update(4, { first_name: 'Updated', last_name: 'User' })
+  await api.delete(4)
+
+  assert.deepEqual(client.calls, [
+    {
+      path: '/api/accounts/register',
+      options: {
+        method: 'POST',
+        body: JSON.stringify({
+          username: 'account-user',
+          first_name: 'Account',
+          last_name: 'User',
+          password: 'password-1',
+        }),
+      },
+    },
+    {
+      path: '/api/accounts/login',
+      options: {
+        method: 'POST',
+        body: JSON.stringify({ username: 'account-user', password: 'password-1' }),
+      },
+    },
+    { path: '/api/accounts/4', options: {} },
+    {
+      path: '/api/accounts/4',
+      options: {
+        method: 'PATCH',
+        body: JSON.stringify({ first_name: 'Updated', last_name: 'User' }),
+      },
+    },
+    { path: '/api/accounts/4', options: { method: 'DELETE' } },
+  ])
+})
+
 test('maps the fictional user flow to the documented user endpoints', async () => {
   const client = recordingClient()
   const api = createUsersApi(client)
 
-  await api.create('Fictional Demo User', { prototype_account: true })
-  await api.update(4, { display_name: 'Updated Demo' })
+  await api.create('Fictional', 'Demo User', { prototype_account: true })
+  await api.update(4, { first_name: 'Updated', last_name: 'Demo' })
   await api.get(4)
 
   assert.deepEqual(client.calls, [
@@ -31,7 +80,8 @@ test('maps the fictional user flow to the documented user endpoints', async () =
       options: {
         method: 'POST',
         body: JSON.stringify({
-          display_name: 'Fictional Demo User',
+          first_name: 'Fictional',
+          last_name: 'Demo User',
           preferences: { prototype_account: true },
         }),
       },
@@ -40,7 +90,7 @@ test('maps the fictional user flow to the documented user endpoints', async () =
       path: '/api/users/4',
       options: {
         method: 'PATCH',
-        body: JSON.stringify({ display_name: 'Updated Demo' }),
+        body: JSON.stringify({ first_name: 'Updated', last_name: 'Demo' }),
       },
     },
     { path: '/api/users/4', options: {} },
@@ -68,6 +118,52 @@ test('maps measured exercise results to snake-case API fields', async () => {
     measured_active_duration_ms: 18420,
     last_step: 'inhale_cycle_2',
   })
+})
+
+test('maps calendar check-ins to the documented endpoints', async () => {
+  const client = recordingClient()
+  const api = createCheckInsApi(client)
+
+  await api.create(3, {
+    feeling: 'happy',
+    color: '#d2a13f',
+    description: 'A good day.',
+    checkInDate: '2026-10-28',
+  })
+  await api.list(3)
+  await api.update(7, {
+    feeling: 'hopeful',
+    color: '#496db2',
+    description: 'The day improved.',
+  })
+
+  assert.deepEqual(client.calls, [
+    {
+      path: '/api/check-ins',
+      options: {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: 3,
+          feeling: 'happy',
+          color: '#d2a13f',
+          description: 'A good day.',
+          check_in_date: '2026-10-28',
+        }),
+      },
+    },
+    { path: '/api/users/3/check-ins', options: {} },
+    {
+      path: '/api/check-ins/7',
+      options: {
+        method: 'PATCH',
+        body: JSON.stringify({
+          feeling: 'hopeful',
+          color: '#496db2',
+          description: 'The day improved.',
+        }),
+      },
+    },
+  ])
 })
 
 test('maps new and continued messages to the documented chat endpoint', async () => {

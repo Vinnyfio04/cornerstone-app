@@ -3,15 +3,14 @@ import './assets/main.css'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
-import { createDemoUserSession, provideDemoUserSession } from './session/demoUser.js'
+import { createAccountSession, provideAccountSession } from './session/accountSession.js'
 
 const app = createApp(App)
-const demoUserSession = createDemoUserSession()
+const accountSession = createAccountSession()
 
 app.use(router)
-provideDemoUserSession(app, demoUserSession)
-app.mount('#app')
-
-demoUserSession.initialize().catch(() => {
-  // The shell and deterministic exercises remain available while retry is shown.
+provideAccountSession(app, accountSession)
+accountSession.initialize().catch(() => {
+  // The shell, breathing exercise, and support information remain available.
 })
+app.mount('#app')

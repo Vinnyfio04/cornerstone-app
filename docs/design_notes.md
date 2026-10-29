@@ -20,7 +20,7 @@ The reviewed Phase 1 direction is defined in `docs/phase-1-contract.md`. It expa
 
 Six uninterrupted breathing cycles remain the planned 60-second completion point. Releasing earlier records an exit, stops the visual cue immediately, and prominently offers grounding. The browser measures active time; server timestamps and SQLite records support later evidence. Deterministic application code—not the model—owns exercise order, timing, exits, persistence, failures, and support access.
 
-The complete route set also includes saved history, an account/CRUD framework using a fictional demo user, and independent static crisis-support information. The exact page behavior, provider boundary, failure states, and review decisions are in `docs/phase-1-contract.md`; endpoint payloads are in `docs/mvc-contracts.md`.
+The complete route set also includes saved history, explicit local registration/sign-in, and independent static crisis-support information. Signed-out users retain breathing and support access; other activities require an account. The exact page behavior, provider boundary, failure states, and review decisions are in `docs/phase-1-contract.md`; endpoint payloads are in `docs/mvc-contracts.md`.
 
 ### Planned SQLite evidence
 
@@ -76,7 +76,7 @@ Mocked provider and browser tests cover these contracts without network or billi
 
 ### Step 18 past conversation selection
 
-Conversation persistence did not require a schema migration. `conversations` already stores the owning user plus creation/update timestamps, and its related `chat_logs` rows store ordered roles, content, delivery status, and timestamps. The missing behavior was View selection. History now derives a short label from the first user message and links a saved conversation back to Chat. Chat validates the query selection against the active demo user's summaries before requesting its messages, continues sending with that conversation ID, and exposes a separate New conversation action. The first message in a new conversation is persisted immediately through the existing endpoint; no independent Save endpoint or LLM history access was added. Starting a new text conversation ends an active voice session and clears only its transient captions.
+Conversation persistence did not require a schema migration. `conversations` already stores the owning user plus creation/update timestamps, and its related `chat_logs` rows store ordered roles, content, delivery status, and timestamps. The missing behavior was View selection. History now derives a short label from the first user message and links a saved conversation back to Chat. Chat validates the query selection against the active account's summaries before requesting its messages, continues sending with that conversation ID, and exposes a separate New conversation action. The first message in a new conversation is persisted immediately through the existing endpoint; no independent Save endpoint or LLM history access was added. Starting a new text conversation ends an active voice session and clears only its transient captions.
 
 ### Step 20 reviewed text-chat instruction
 
@@ -138,7 +138,6 @@ Persisted text chat now imports its code-versioned developer instruction from `b
 ## Questions to resolve
 
 - Which jurisdiction-specific crisis-support resources and wording are approved for the static support page?
-- When should active registration/login replace the fictional demo user used in Phase 1?
 - What should the visual emotion-input graph represent, and how can it be usable without implying clinical measurement?
 - Are optional follow-up questions valuable enough to justify their effort?
 - Which personalization details should be saved locally, for how long, and with what review, correction, and deletion controls?

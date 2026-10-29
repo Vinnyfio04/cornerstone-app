@@ -19,7 +19,7 @@ Dependencies move in one direction: View → Controller → Model. A Model does 
 `users.id` is the primary identifier used by the other tables.
 
 - `id`: integer primary key
-- `display_name`: required display label
+- `first_name`, `last_name`: required account-holder name fields
 - `preferences_json`: JSON object reserved for explicit, user-correctable preferences
 - `created_at`, `updated_at`: SQLite timestamps
 
@@ -50,6 +50,10 @@ Deleting a user cascades to the user's exercise sessions. Controllers validate l
 
 The history exists to support visible history and future, explicit personalization. No automatic mental-state inference or personalization behavior is implemented by this schema.
 
+### `check_ins`
+
+A user may have one check-in per local calendar date. Each row contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. `color` is a validated six-digit hex color chosen by the View; older check-ins receive the neutral `#66836e` marker during migration. `check_in_date` is an ISO `YYYY-MM-DD` value supplied by the View so calendar placement does not depend on the server time zone. Deleting a user cascades to that user's check-ins. The database uniqueness constraint on `(user_id, check_in_date)` prevents duplicate daily markers.
+
 ## Model–Controller contract
 
 `DatabaseController` accepts a filesystem path, creates the approved schema, and opens each transaction with `PRAGMA foreign_keys = ON`.
@@ -70,7 +74,7 @@ Business controllers may call the database controller or another controller thro
 
 ## View–Controller JSON contract
 
-The health, user CRUD, exercise-session, exercise-history, chat-message, conversation-history, message-history, and voice-session FastAPI endpoints are implemented. Every endpoint uses JSON and the following stable envelope:
+The health, user CRUD, exercise-session, exercise-history, check-in, chat-message, conversation-history, message-history, and voice-session FastAPI endpoints are implemented. Every endpoint uses JSON and the following stable envelope:
 
 ```json
 {
@@ -116,13 +120,24 @@ All endpoints are rooted at `/api`. Successful responses use the shared `data`/`
 
 The response may report readiness but must not expose keys, prompts, paths, or provider diagnostics.
 
+### Account registration and sign-in
+
+`POST /api/accounts/register` accepts `username`, `first_name`, `last_name`, and `password`. The username is 3–50 characters and uses letters, numbers, periods, underscores, or hyphens. Both name fields are required and limited to 50 characters. The password is 8–128 characters. The controller creates the user and login rows in one transaction and stores only a salted PBKDF2 hash.
+
+`POST /api/accounts/login` accepts `username` and `password`. Invalid credentials return HTTP 401 with `invalid_credentials`.
+
+`GET /api/accounts/{user_id}` returns the public account. `PATCH /api/accounts/{user_id}` accepts one or more of `username`, `first_name`, `last_name`, and `password`. `DELETE /api/accounts/{user_id}` deletes the user; existing foreign-key cascades delete its login, conversations, chat logs, and exercise sessions.
+
+Public account responses contain `id`, `username`, `first_name`, `last_name`, `preferences`, `created_at`, and `updated_at`. They never contain a password or password hash. This local coursework flow persists an active user identifier in the browser but does not provide server-issued endpoint authorization.
+
 ### User CRUD
 
 `POST /api/users`
 
 ```json
 {
-  "display_name": "Fictional Demo User",
+  "first_name": "Fictional",
+  "last_name": "User",
   "preferences": {}
 }
 ```
@@ -133,7 +148,8 @@ The response may report readiness but must not expose keys, prompts, paths, or p
 
 ```json
 {
-  "display_name": "Updated Fictional User",
+  "first_name": "Updated",
+  "last_name": "User",
   "preferences": {
     "preferred_skill": "paced_breathing"
   }
@@ -151,7 +167,7 @@ The response may report readiness but must not expose keys, prompts, paths, or p
 }
 ```
 
-Public user responses contain `id`, `display_name`, `preferences`, `created_at`, and `updated_at`. Login credentials and password hashes are never included. Active registration/login is outside Phase 1.
+Public user responses contain `id`, `first_name`, `last_name`, `preferences`, `created_at`, and `updated_at`. Login credentials and password hashes are never included. These original user endpoints remain for the existing controller contract; the View uses the account endpoints for registration and account management.
 
 ### Start an exercise session
 
@@ -188,6 +204,26 @@ The only Phase 1 terminal statuses are `completed` and `exited`. The controller 
 `GET /api/users/{user_id}/exercise-sessions`
 
 Response data contains a `sessions` array ordered newest first. It does not calculate or claim clinical progress.
+
+### Calendar check-ins
+
+`POST /api/check-ins`
+
+```json
+{
+  "user_id": 1,
+  "feeling": "happy",
+  "color": "#d2a13f",
+  "description": "I finished a difficult assignment.",
+  "check_in_date": "2026-10-28"
+}
+```
+
+The response contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. Feeling text is limited to 50 characters, color must be a six-digit hex value, and description text is limited to 2,000 characters. A second check-in for the same user and date returns `conflict`.
+
+`GET /api/users/{user_id}/check-ins` returns a `check_ins` array ordered by calendar date. The View uses the ISO date as the calendar key and renders each saved marker with its stored color. Custom feelings expose preset swatches plus a full color picker; color is supplemented by accessible text and a legend.
+
+`PATCH /api/check-ins/{check_in_id}` accepts one or more of `feeling`, `color`, and `description`. The calendar View allows users to create entries for today or earlier dates and to reopen any saved entry for editing. Future dates remain read-only. Editing does not move an entry to a different calendar date.
 
 ### Send a chat message
 
@@ -237,7 +273,7 @@ The chat service accepts at most 2,000 characters per user message, retains at m
 
 `GET /api/conversations/{conversation_id}/messages` returns public message objects ordered by increasing identifier.
 
-The History View combines these existing read endpoints to present past text conversations. It derives a display preview from the first saved user message without adding a title column. **Open conversation** routes to `/chat?conversation={id}`; before loading messages, Chat confirms that the requested identifier is present in the active demo user's conversation summaries. `/chat?new=1` clears the current View selection and uses `conversation_id: null` for the next message, causing the existing chat controller to create a new persistent conversation. After creation, Chat replaces the route query with the returned conversation identifier. Messages save immediately through the chat endpoint; there is no separate unsaved draft record or Save endpoint. Live audio and transient voice captions remain excluded.
+The History View combines these existing read endpoints to present past text conversations. It derives a display preview from the first saved user message without adding a title column. **Open conversation** routes to `/chat?conversation={id}`; before loading messages, Chat confirms that the requested identifier is present in the active account's conversation summaries. `/chat?new=1` clears the current View selection and uses `conversation_id: null` for the next message, causing the existing chat controller to create a new persistent conversation. After creation, Chat replaces the route query with the returned conversation identifier. Messages save immediately through the chat endpoint; there is no separate unsaved draft record or Save endpoint. Live audio and transient voice captions remain excluded.
 
 ### Voice configuration and session exchange
 
@@ -281,6 +317,7 @@ Mute changes only local audio-track enablement; it does not stop assistant playb
 ### Stable Phase 1 error codes
 
 - `validation_error` — invalid or missing View input;
+- `invalid_credentials` — the supplied username/password pair was not verified;
 - `not_found` — unknown user, conversation, message, or exercise session;
 - `conflict` — uniqueness or illegal state-transition conflict;
 - `model_unavailable` — model mode is not configured or provider call failed;
@@ -293,6 +330,6 @@ HTTP status codes and JSON error codes must be mapped in the API controller and 
 
 ## View request implementation
 
-`frontend/src/api/client.js` is the only general HTTP adapter. It validates the shared `data`/`error` envelope, converts controller errors to `ApiError`, and maps failed transport or non-JSON responses to stable View-safe errors. `users.js`, `sessions.js`, `chat.js`, and `voice.js` map screen actions to the endpoint-specific fields above. During local Vite development, `/api` is proxied to `http://127.0.0.1:8000`; a deployment may instead provide `VITE_API_BASE_URL`.
+`frontend/src/api/client.js` is the only general HTTP adapter. It validates the shared `data`/`error` envelope, converts controller errors to `ApiError`, and maps failed transport or non-JSON responses to stable View-safe errors. `accounts.js`, `users.js`, `sessions.js`, `chat.js`, and `voice.js` map screen actions to the endpoint-specific fields above. During local Vite development, `/api` is proxied to `http://127.0.0.1:8000`; a deployment may instead provide `VITE_API_BASE_URL`.
 
-The View stores only the fictional demo user's integer identifier in browser local storage. It resolves the complete public user through `GET /api/users/{id}`, replaces a stale identifier through `POST /api/users`, and never stores credentials. Exercise persistence converts the View's camel-case result object into the controller's snake-case payload. Chat and history consume only public serialized messages and sessions. If a request fails, the deterministic skill remains available and the View presents retry or unsaved state rather than reading SQLite directly.
+The View stores only the signed-in user's integer identifier in browser local storage. It resolves the complete public account through `GET /api/accounts/{id}`, clears a stale identifier after `not_found`, and never stores credentials. Exercise persistence converts the View's camel-case result object into the controller's snake-case payload. Chat and history consume only public serialized messages and sessions. While signed out, the router-level View gate prevents grounding, chat, voice, and history screens from mounting; breathing and `/support` remain independent and available.

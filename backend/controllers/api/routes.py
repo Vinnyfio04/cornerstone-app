@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, Request, status
 
 from backend.controllers.database_controller import DatabaseController
 from backend.controllers.services import (
+    AccountNotFoundError,
+    AccountService,
     ChatResourceNotFoundError,
     ChatService,
+    InvalidCredentialsError,
     ModelTimeoutError,
     ModelUnavailableError,
     VoiceService,
@@ -17,6 +20,8 @@ from backend.controllers.services import (
 
 from .responses import (
     failure,
+    public_account,
+    public_check_in,
     public_chat_message,
     public_conversation,
     public_exercise_session,
@@ -24,7 +29,12 @@ from .responses import (
     success,
 )
 from .schemas import (
+    AccountLoginRequest,
+    AccountRegistrationRequest,
+    AccountUpdateRequest,
     ApiEnvelope,
+    CheckInCreateRequest,
+    CheckInUpdateRequest,
     ChatMessageRequest,
     ExerciseSessionCreateRequest,
     ExerciseSessionUpdateRequest,
@@ -45,11 +55,16 @@ def get_chat_service(request: Request) -> ChatService:
     return request.app.state.chat_service
 
 
+def get_account_service(request: Request) -> AccountService:
+    return request.app.state.account_service
+
+
 def get_voice_service(request: Request) -> VoiceService:
     return request.app.state.voice_service
 
 
 DatabaseDependency = Annotated[DatabaseController, Depends(get_database)]
+AccountServiceDependency = Annotated[AccountService, Depends(get_account_service)]
 ChatServiceDependency = Annotated[ChatService, Depends(get_chat_service)]
 VoiceServiceDependency = Annotated[VoiceService, Depends(get_voice_service)]
 
@@ -63,6 +78,73 @@ def get_health(chat_service: ChatServiceDependency) -> dict:
             "model_ready": chat_service.model_ready,
         }
     )
+
+
+@router.post(
+    "/accounts/register",
+    response_model=ApiEnvelope,
+    status_code=status.HTTP_201_CREATED,
+)
+def register_account(
+    payload: AccountRegistrationRequest,
+    account_service: AccountServiceDependency,
+) -> dict:
+    account = account_service.register(
+        payload.username,
+        payload.first_name,
+        payload.last_name,
+        payload.password,
+    )
+    return success(public_account(account))
+
+
+@router.post("/accounts/login", response_model=ApiEnvelope)
+def login_account(
+    payload: AccountLoginRequest,
+    account_service: AccountServiceDependency,
+):
+    try:
+        account = account_service.login(payload.username, payload.password)
+    except InvalidCredentialsError:
+        return failure(401, "invalid_credentials", "Username or password is incorrect.")
+    return success(public_account(account))
+
+
+@router.get("/accounts/{user_id}", response_model=ApiEnvelope)
+def get_account(user_id: int, account_service: AccountServiceDependency):
+    try:
+        account = account_service.get(user_id)
+    except AccountNotFoundError:
+        return failure(404, "not_found", "Account was not found.")
+    return success(public_account(account))
+
+
+@router.patch("/accounts/{user_id}", response_model=ApiEnvelope)
+def update_account(
+    user_id: int,
+    payload: AccountUpdateRequest,
+    account_service: AccountServiceDependency,
+):
+    try:
+        account = account_service.update(
+            user_id,
+            username=payload.username,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            password=payload.password,
+        )
+    except AccountNotFoundError:
+        return failure(404, "not_found", "Account was not found.")
+    return success(public_account(account))
+
+
+@router.delete("/accounts/{user_id}", response_model=ApiEnvelope)
+def delete_account(user_id: int, account_service: AccountServiceDependency):
+    try:
+        account_service.delete(user_id)
+    except AccountNotFoundError:
+        return failure(404, "not_found", "Account was not found.")
+    return success({"deleted": True})
 
 
 @router.get("/voice/config", response_model=ApiEnvelope)
@@ -115,7 +197,11 @@ def create_voice_session(
 def create_user(
     payload: UserCreateRequest, database: DatabaseDependency
 ) -> dict:
-    user = database.create_user(payload.display_name, payload.preferences)
+    user = database.create_user(
+        payload.first_name,
+        payload.last_name,
+        payload.preferences,
+    )
     return success(public_user(user))
 
 
@@ -135,7 +221,8 @@ def update_user(
 ):
     user = database.update_user(
         user_id,
-        display_name=payload.display_name,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
         preferences=payload.preferences,
     )
     if user is None:
@@ -197,6 +284,51 @@ def list_exercise_sessions(user_id: int, database: DatabaseDependency):
     return success(
         {"sessions": [public_exercise_session(session) for session in sessions]}
     )
+
+
+@router.post(
+    "/check-ins",
+    response_model=ApiEnvelope,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_check_in(payload: CheckInCreateRequest, database: DatabaseDependency):
+    if database.get_user(payload.user_id) is None:
+        return failure(404, "not_found", "User was not found.")
+    check_in = database.create_check_in(
+        payload.user_id,
+        payload.feeling,
+        payload.color,
+        payload.description,
+        payload.check_in_date.isoformat(),
+    )
+    return success(public_check_in(check_in))
+
+
+@router.get("/users/{user_id}/check-ins", response_model=ApiEnvelope)
+def list_check_ins(user_id: int, database: DatabaseDependency):
+    if database.get_user(user_id) is None:
+        return failure(404, "not_found", "User was not found.")
+    check_ins = database.list_check_ins(user_id)
+    return success(
+        {"check_ins": [public_check_in(check_in) for check_in in check_ins]}
+    )
+
+
+@router.patch("/check-ins/{check_in_id}", response_model=ApiEnvelope)
+def update_check_in(
+    check_in_id: int,
+    payload: CheckInUpdateRequest,
+    database: DatabaseDependency,
+):
+    check_in = database.update_check_in(
+        check_in_id,
+        feeling=payload.feeling,
+        color=payload.color,
+        description=payload.description,
+    )
+    if check_in is None:
+        return failure(404, "not_found", "Check-in was not found.")
+    return success(public_check_in(check_in))
 
 
 @router.post("/chat/messages", response_model=ApiEnvelope)

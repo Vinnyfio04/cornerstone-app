@@ -2,10 +2,10 @@ import { apiClient } from './client.js'
 
 export function createUsersApi(client = apiClient) {
   return {
-    create(displayName, preferences = {}) {
+    create(firstName, lastName, preferences = {}) {
       return client.request('/api/users', {
         method: 'POST',
-        body: JSON.stringify({ display_name: displayName, preferences }),
+        body: JSON.stringify({ first_name: firstName, last_name: lastName, preferences }),
       })
     },
     get(userId) {

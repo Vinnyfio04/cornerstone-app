@@ -4,9 +4,9 @@ import { ref, watch } from 'vue'
 import { chatApi } from '../api/chat.js'
 import { sessionsApi } from '../api/sessions.js'
 import ChatMessage from '../components/ChatMessage.vue'
-import { useDemoUserSession } from '../session/demoUser.js'
+import { useAccountSession } from '../session/accountSession.js'
 
-const demoUserSession = useDemoUserSession()
+const accountSession = useAccountSession()
 const exerciseSessions = ref([])
 const conversations = ref([])
 const isLoading = ref(false)
@@ -46,7 +46,7 @@ function conversationTitle(conversation) {
 }
 
 async function loadHistory() {
-  const user = demoUserSession.user.value
+  const user = accountSession.user.value
   if (!user) {
     return
   }
@@ -73,7 +73,7 @@ async function loadHistory() {
 }
 
 watch(
-  () => demoUserSession.user.value,
+  () => accountSession.user.value,
   (user) => {
     if (user) {
       loadHistory()
@@ -88,7 +88,7 @@ watch(
     <header>
       <p class="eyebrow">Saved prototype activity</p>
       <h1>History</h1>
-      <p>Review measured exercises and fictional demo conversations stored by the API.</p>
+      <p>Review measured exercises and fictional conversations stored for your account.</p>
     </header>
 
     <p v-if="isLoading" aria-live="polite">Loading saved activity…</p>

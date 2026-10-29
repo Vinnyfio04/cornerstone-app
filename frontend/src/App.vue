@@ -3,12 +3,12 @@ import { RouterView } from 'vue-router'
 
 import AppNavigation from './components/AppNavigation.vue'
 import PersistentSupportLink from './components/PersistentSupportLink.vue'
-import { useDemoUserSession } from './session/demoUser.js'
+import { useAccountSession } from './session/accountSession.js'
 
-const demoUserSession = useDemoUserSession()
+const accountSession = useAccountSession()
 
-function retryDemoUser() {
-  demoUserSession.initialize({ force: true }).catch(() => {})
+function retryAccount() {
+  accountSession.initialize({ force: true }).catch(() => {})
 }
 </script>
 
@@ -23,19 +23,34 @@ function retryDemoUser() {
     <AppNavigation />
 
     <aside
-      v-if="demoUserSession.isLoading.value || demoUserSession.error.value"
+      v-if="accountSession.isLoading.value || accountSession.error.value"
       class="connection-status"
-      :class="{ 'connection-error': demoUserSession.error.value }"
+      :class="{ 'connection-error': accountSession.error.value }"
       aria-live="polite"
     >
-      <p v-if="demoUserSession.isLoading.value">Connecting the fictional demo account…</p>
+      <p v-if="accountSession.isLoading.value">Checking your saved sign-in…</p>
       <template v-else>
-        <p>The server is unavailable. Exercises still work, but this activity cannot be saved yet.</p>
-        <button type="button" @click="retryDemoUser">Retry connection</button>
+        <p>The server is unavailable. Breathing and support information remain available.</p>
+        <button type="button" @click="retryAccount">Retry connection</button>
       </template>
     </aside>
 
-    <RouterView />
+    <RouterView v-slot="{ Component, route }">
+      <main
+        v-if="route.meta.requiresAccount && accountSession.isLoading.value"
+        class="account-required"
+        aria-live="polite"
+      >
+        <p>Checking your saved sign-in…</p>
+      </main>
+      <main v-else-if="route.meta.requiresAccount && !accountSession.user.value" class="account-required">
+        <p class="eyebrow">Sign in required</p>
+        <h1>Save this activity to your account.</h1>
+        <p>Breathing and crisis-support information remain available without signing in.</p>
+        <RouterLink class="account-link" to="/account">Go to account</RouterLink>
+      </main>
+      <component :is="Component" v-else />
+    </RouterView>
 
     <footer class="application-footer">
       <p>This prototype is not a substitute for emergency or professional care.</p>
@@ -109,6 +124,41 @@ function retryDemoUser() {
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+}
+
+.account-required {
+  display: grid;
+  width: min(100% - 2rem, 40rem);
+  gap: 1rem;
+  margin: 0 auto;
+  padding: 3rem 0;
+}
+
+.account-required h1 {
+  color: var(--color-heading);
+  font-size: clamp(2rem, 7vw, 3rem);
+}
+
+.account-required .eyebrow {
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.account-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  width: fit-content;
+  align-items: center;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--color-primary);
+  border-radius: 999px;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 @media (max-width: 40rem) {

@@ -610,3 +610,33 @@ Still unverified after Step 21:
 
 - A manual browser send observed under deliberately throttled provider/network latency
 - Visual and screen-reader confirmation of the brief `Sending…` state before a fast response arrives
+
+## 2026-10-27 handoff audit
+
+This audit rechecked the merged `main` branch before creating a new chat handoff. It did not change application code, dependencies, provider configuration, or the local database.
+
+Commands run:
+
+```powershell
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\handoff-2026-10-27'
+Set-Location frontend
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+& '..\backend\.venv\Scripts\python.exe' -m pip check
+```
+
+A separate Python `sqlite3` command opened `backend/models/data/cornerstone.db` in URI read-only mode, counted the fictional rows, grouped exercise and chat outcomes, and ran `PRAGMA foreign_key_check`. A names-and-presence-only check inspected the ignored `.env` without printing values.
+
+Observed results:
+
+- The backend suite completed with `42` passing tests and `0` failures.
+- The frontend suite completed with `53` passing tests and `0` failures.
+- Non-fixing Oxc and ESLint checks exited successfully without output.
+- Vite 8.3.4 built `64` modules successfully.
+- `pip check` reported no broken requirements.
+- Read-only SQLite inspection found `2` users, `0` login rows, `6` conversations, `20` chat rows, and `34` exercise sessions. Exercise outcomes were paced breathing: `2` completed and `23` exited; sensory grounding: `2` completed and `7` exited. Chat outcomes were `10` delivered user rows, `6` delivered assistant rows, and `4` fallback assistant rows. `PRAGMA foreign_key_check` returned no violations.
+- The ignored environment has nonempty `OPEN_AI_API_KEY`, `VOICE_BACKEND_MODEL`, and `VOICE_MAX_SESSION_SECONDS` entries. No value was printed or changed. Starting Uvicorn with that environment can make paid OpenAI calls.
+- Git was on `main` at `5921804d3a92fe3be2f4f9cbbe96005eec2ecfe7`, tracking `origin/main`. The only working-tree change before this handoff documentation was `report.md`.
+- No browser walkthrough, OpenAI network request, microphone access, audio playback, paid usage, or database write was performed by this audit.

@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from backend.models import ChatLog, Conversation, ExerciseSession, Login, User
+from backend.models import CheckIn, ChatLog, Conversation, ExerciseSession, Login, User
 
 
 DEFAULT_DATABASE_PATH = (
@@ -46,7 +46,8 @@ class DatabaseController:
                 """
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    display_name TEXT NOT NULL CHECK (trim(display_name) <> ''),
+                    first_name TEXT NOT NULL CHECK (trim(first_name) <> ''),
+                    last_name TEXT NOT NULL CHECK (trim(last_name) <> ''),
                     preferences_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -93,11 +94,57 @@ class DatabaseController:
 
                 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_user_order
                     ON exercise_sessions(user_id, id);
+
+                CREATE TABLE IF NOT EXISTS check_ins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    feeling TEXT NOT NULL CHECK (trim(feeling) <> ''),
+                    color TEXT NOT NULL DEFAULT '#66836e'
+                        CHECK (color GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'),
+                    description TEXT NOT NULL CHECK (trim(description) <> ''),
+                    check_in_date TEXT NOT NULL
+                        CHECK (check_in_date IS date(check_in_date)),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE (user_id, check_in_date)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_check_ins_user_date
+                    ON check_ins(user_id, check_in_date);
                 """
             )
+            self._initialize_users_schema(connection)
             self._initialize_chat_logs_schema(connection)
+            self._initialize_check_ins_schema(connection)
             if connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
                 raise RuntimeError("SQLite foreign-key enforcement is disabled")
+
+    @staticmethod
+    def _initialize_users_schema(connection: sqlite3.Connection) -> None:
+        """Migrate the former display label into explicit first/last name fields."""
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(users)")
+        }
+        if "display_name" in columns and "first_name" not in columns:
+            connection.execute(
+                "ALTER TABLE users RENAME COLUMN display_name TO first_name"
+            )
+            columns.remove("display_name")
+            columns.add("first_name")
+        if "last_name" not in columns:
+            connection.execute(
+                "ALTER TABLE users ADD COLUMN last_name TEXT NOT NULL DEFAULT ''"
+            )
+            connection.execute(
+                """
+                UPDATE users
+                SET
+                    last_name = substr(trim(first_name), instr(trim(first_name), ' ') + 1),
+                    first_name = substr(trim(first_name), 1, instr(trim(first_name), ' ') - 1)
+                WHERE instr(trim(first_name), ' ') > 0
+                  AND trim(last_name) = ''
+                """
+            )
 
     @staticmethod
     def _initialize_chat_logs_schema(connection: sqlite3.Connection) -> None:
@@ -126,6 +173,20 @@ class DatabaseController:
             ON chat_logs(conversation_id, id)
             """
         )
+
+    @staticmethod
+    def _initialize_check_ins_schema(connection: sqlite3.Connection) -> None:
+        """Add marker color without discarding check-ins from an older schema."""
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(check_ins)")
+        }
+        if "color" not in columns:
+            connection.execute(
+                """
+                ALTER TABLE check_ins
+                ADD COLUMN color TEXT NOT NULL DEFAULT '#66836e'
+                """
+            )
 
     @staticmethod
     def _create_chat_logs_table(
@@ -220,18 +281,49 @@ class DatabaseController:
         return [dict(row) for row in rows]
 
     def create_user(
-        self, display_name: str, preferences: dict[str, Any] | None = None
+        self,
+        first_name: str,
+        last_name: str,
+        preferences: dict[str, Any] | None = None,
     ) -> User:
         preferences_json = json.dumps(preferences or {}, sort_keys=True)
         with self.connect() as connection:
             cursor = connection.execute(
-                "INSERT INTO users (display_name, preferences_json) VALUES (?, ?)",
-                (display_name, preferences_json),
+                "INSERT INTO users (first_name, last_name, preferences_json) VALUES (?, ?, ?)",
+                (first_name, last_name, preferences_json),
             )
             row = connection.execute(
                 "SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()
         return self._user(row)
+
+    def create_account(
+        self,
+        first_name: str,
+        last_name: str,
+        username: str,
+        password_hash: str,
+        preferences: dict[str, Any] | None = None,
+    ) -> tuple[User, Login]:
+        """Create a user and login together so a failed credential insert leaves no orphan."""
+        preferences_json = json.dumps(preferences or {}, sort_keys=True)
+        with self.connect() as connection:
+            user_cursor = connection.execute(
+                "INSERT INTO users (first_name, last_name, preferences_json) VALUES (?, ?, ?)",
+                (first_name, last_name, preferences_json),
+            )
+            user_id = int(user_cursor.lastrowid)
+            login_cursor = connection.execute(
+                "INSERT INTO login (user_id, username, password_hash) VALUES (?, ?, ?)",
+                (user_id, username, password_hash),
+            )
+            user_row = connection.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            login_row = connection.execute(
+                "SELECT * FROM login WHERE id = ?", (login_cursor.lastrowid,)
+            ).fetchone()
+        return self._user(user_row), self._login(login_row)
 
     def get_user(self, user_id: int) -> User | None:
         with self.connect() as connection:
@@ -249,14 +341,18 @@ class DatabaseController:
         self,
         user_id: int,
         *,
-        display_name: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
         preferences: dict[str, Any] | None = None,
     ) -> User | None:
         assignments: list[str] = []
         values: list[Any] = []
-        if display_name is not None:
-            assignments.append("display_name = ?")
-            values.append(display_name)
+        if first_name is not None:
+            assignments.append("first_name = ?")
+            values.append(first_name)
+        if last_name is not None:
+            assignments.append("last_name = ?")
+            values.append(last_name)
         if preferences is not None:
             assignments.append("preferences_json = ?")
             values.append(json.dumps(preferences, sort_keys=True))
@@ -348,6 +444,13 @@ class DatabaseController:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT * FROM login WHERE username = ?", (username,)
+            ).fetchone()
+        return self._login(row) if row else None
+
+    def get_login_by_user_id(self, user_id: int) -> Login | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM login WHERE user_id = ?", (user_id,)
             ).fetchone()
         return self._login(row) if row else None
 
@@ -621,6 +724,102 @@ class DatabaseController:
             )
         return cursor.rowcount == 1
 
+    def create_check_in(
+        self,
+        user_id: int,
+        feeling: str,
+        color: str,
+        description: str,
+        check_in_date: str,
+    ) -> CheckIn:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO check_ins (
+                    user_id, feeling, color, description, check_in_date
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (user_id, feeling, color, description, check_in_date),
+            )
+            row = connection.execute(
+                "SELECT * FROM check_ins WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+        return self._check_in(row)
+
+    def get_check_in(self, check_in_id: int) -> CheckIn | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM check_ins WHERE id = ?", (check_in_id,)
+            ).fetchone()
+        return self._check_in(row) if row else None
+
+    def list_check_ins(
+        self,
+        user_id: int,
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[CheckIn]:
+        conditions = ["user_id = ?"]
+        values: list[Any] = [user_id]
+        if start_date is not None:
+            conditions.append("check_in_date >= ?")
+            values.append(start_date)
+        if end_date is not None:
+            conditions.append("check_in_date <= ?")
+            values.append(end_date)
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM check_ins
+                WHERE {' AND '.join(conditions)}
+                ORDER BY check_in_date, id
+                """,
+                values,
+            ).fetchall()
+        return [self._check_in(row) for row in rows]
+
+    def update_check_in(
+        self,
+        check_in_id: int,
+        *,
+        feeling: str | None = None,
+        color: str | None = None,
+        description: str | None = None,
+    ) -> CheckIn | None:
+        assignments: list[str] = []
+        values: list[Any] = []
+        if feeling is not None:
+            assignments.append("feeling = ?")
+            values.append(feeling)
+        if color is not None:
+            assignments.append("color = ?")
+            values.append(color)
+        if description is not None:
+            assignments.append("description = ?")
+            values.append(description)
+        if not assignments:
+            return self.get_check_in(check_in_id)
+
+        values.append(check_in_id)
+        with self.connect() as connection:
+            connection.execute(
+                f"UPDATE check_ins SET {', '.join(assignments)} WHERE id = ?",
+                values,
+            )
+            row = connection.execute(
+                "SELECT * FROM check_ins WHERE id = ?", (check_in_id,)
+            ).fetchone()
+        return self._check_in(row) if row else None
+
+    def delete_check_in(self, check_in_id: int) -> bool:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM check_ins WHERE id = ?", (check_in_id,)
+            )
+        return cursor.rowcount == 1
+
     @staticmethod
     def _user(row: sqlite3.Row) -> User:
         return User(**dict(row))
@@ -640,3 +839,7 @@ class DatabaseController:
     @staticmethod
     def _exercise_session(row: sqlite3.Row) -> ExerciseSession:
         return ExerciseSession(**dict(row))
+
+    @staticmethod
+    def _check_in(row: sqlite3.Row) -> CheckIn:
+        return CheckIn(**dict(row))

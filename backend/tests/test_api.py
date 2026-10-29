@@ -8,20 +8,33 @@ from pydantic import ValidationError
 
 from backend.controllers.api import create_app
 from backend.controllers.api.routes import (
+    create_check_in,
     create_exercise_session,
     create_user,
+    delete_account,
     delete_user,
+    get_account,
     get_health,
     get_user,
     list_conversation_messages,
     list_conversations,
+    list_check_ins,
     list_exercise_sessions,
+    login_account,
     post_chat_message,
+    register_account,
+    update_account,
+    update_check_in,
     update_exercise_session,
     update_user,
 )
 from backend.controllers.api.schemas import (
+    AccountLoginRequest,
+    AccountRegistrationRequest,
+    AccountUpdateRequest,
     ChatMessageRequest,
+    CheckInCreateRequest,
+    CheckInUpdateRequest,
     ExerciseSessionCreateRequest,
     ExerciseSessionUpdateRequest,
     UserCreateRequest,
@@ -31,6 +44,7 @@ from backend.controllers.services import (
     ModelTimeoutError,
     ModelUnavailableError,
     ProviderSettings,
+    verify_password,
 )
 
 
@@ -70,9 +84,11 @@ def api(tmp_path):
 
 
 def create_fictional_user(database, name="Fictional Demo User"):
+    first_name, _, last_name = name.partition(" ")
     return create_user(
         UserCreateRequest(
-            display_name=name,
+            first_name=first_name,
+            last_name=last_name or "User",
             preferences={"pace": "gentle"},
         ),
         database,
@@ -91,12 +107,20 @@ def test_application_registers_documented_api_boundary(api):
     assert {
         ("GET", "/api/health"),
         ("POST", "/api/users"),
+        ("POST", "/api/accounts/register"),
+        ("POST", "/api/accounts/login"),
+        ("GET", "/api/accounts/{user_id}"),
+        ("PATCH", "/api/accounts/{user_id}"),
+        ("DELETE", "/api/accounts/{user_id}"),
         ("GET", "/api/users/{user_id}"),
         ("PATCH", "/api/users/{user_id}"),
         ("DELETE", "/api/users/{user_id}"),
         ("POST", "/api/exercise-sessions"),
         ("PATCH", "/api/exercise-sessions/{session_id}"),
         ("GET", "/api/users/{user_id}/exercise-sessions"),
+        ("POST", "/api/check-ins"),
+        ("GET", "/api/users/{user_id}/check-ins"),
+        ("PATCH", "/api/check-ins/{check_in_id}"),
         ("GET", "/api/users/{user_id}/conversations"),
         ("GET", "/api/conversations/{conversation_id}/messages"),
         ("POST", "/api/chat/messages"),
@@ -105,6 +129,79 @@ def test_application_registers_documented_api_boundary(api):
     assert sqlite3.IntegrityError in application.exception_handlers
     assert sqlite3.DatabaseError in application.exception_handlers
     assert openapi["info"]["title"] == "Cornerstone API"
+
+
+def test_account_registration_login_update_and_hashing(api):
+    application, database = api
+    account_service = application.state.account_service
+    registered = register_account(
+        AccountRegistrationRequest(
+            username="fictional.account",
+            first_name="Fictional",
+            last_name="Account",
+            password="long-enough-password",
+        ),
+        account_service,
+    )["data"]
+
+    stored_login = database.get_login_by_user_id(registered["id"])
+    assert registered["username"] == "fictional.account"
+    assert "password" not in registered
+    assert stored_login.password_hash != "long-enough-password"
+    assert verify_password("long-enough-password", stored_login.password_hash)
+
+    signed_in = login_account(
+        AccountLoginRequest(
+            username="FICTIONAL.ACCOUNT",
+            password="long-enough-password",
+        ),
+        account_service,
+    )
+    assert signed_in["data"]["id"] == registered["id"]
+
+    rejected = login_account(
+        AccountLoginRequest(
+            username="fictional.account",
+            password="incorrect-password",
+        ),
+        account_service,
+    )
+    assert rejected.status_code == 401
+    assert response_body(rejected)["error"]["code"] == "invalid_credentials"
+
+    updated = update_account(
+        registered["id"],
+        AccountUpdateRequest(
+            username="updated.account",
+            first_name="Updated",
+            last_name="Account",
+            password="updated-password",
+        ),
+        account_service,
+    )["data"]
+    assert updated["first_name"] == "Updated"
+    assert updated["last_name"] == "Account"
+    assert updated["username"] == "updated.account"
+    assert get_account(registered["id"], account_service)["data"] == updated
+
+    conversation = database.create_conversation(registered["id"])
+    database.create_chat_log(
+        registered["id"],
+        "user",
+        "Delete this fictional message with the account.",
+        conversation_id=conversation.id,
+    )
+    database.create_exercise_session(registered["id"], "sensory_grounding")
+
+    assert delete_account(registered["id"], account_service) == {
+        "data": {"deleted": True},
+        "error": None,
+    }
+    assert database.get_user(registered["id"]) is None
+    assert database.get_login_by_user_id(registered["id"]) is None
+    assert database.get_conversation(conversation.id) is None
+    assert database.list_exercise_sessions(registered["id"]) == []
+    assert database.check_references() == []
 
 
 def test_health_uses_stable_envelope(api):
@@ -214,7 +311,8 @@ def test_user_crud_and_request_validation(api):
 
     assert set(user) == {
         "id",
-        "display_name",
+        "first_name",
+        "last_name",
         "preferences",
         "created_at",
         "updated_at",
@@ -225,16 +323,18 @@ def test_user_crud_and_request_validation(api):
     updated = update_user(
         user["id"],
         UserUpdateRequest(
-            display_name="Updated Fictional User",
+            first_name="Updated",
+            last_name="Fictional User",
             preferences={"preferred_skill": "paced_breathing"},
         ),
         database,
     )
-    assert updated["data"]["display_name"] == "Updated Fictional User"
+    assert updated["data"]["first_name"] == "Updated"
+    assert updated["data"]["last_name"] == "Fictional User"
 
     with pytest.raises(ValidationError):
         UserCreateRequest.model_validate(
-            {"display_name": "   ", "unexpected": "rejected"}
+            {"first_name": "   ", "last_name": "User", "unexpected": "rejected"}
         )
 
     assert delete_user(user["id"], database) == {
@@ -319,6 +419,70 @@ def test_exercise_lifecycle_history_and_conflict(api):
     ]
 
 
+def test_check_in_create_and_list_contract(api):
+    _, database = api
+    user = create_fictional_user(database, "Calendar API User")
+    created = create_check_in(
+        CheckInCreateRequest(
+            user_id=user["id"],
+            feeling="happy",
+            color="#d2a13f",
+            description="I completed a difficult task.",
+            check_in_date="2026-10-28",
+        ),
+        database,
+    )
+
+    assert created["data"] == {
+        "id": created["data"]["id"],
+        "user_id": user["id"],
+        "feeling": "happy",
+        "color": "#d2a13f",
+        "description": "I completed a difficult task.",
+        "check_in_date": "2026-10-28",
+        "created_at": created["data"]["created_at"],
+    }
+    assert list_check_ins(user["id"], database)["data"]["check_ins"] == [
+        created["data"]
+    ]
+
+    updated = update_check_in(
+        created["data"]["id"],
+        CheckInUpdateRequest(
+            feeling="hopeful",
+            color="#496db2",
+            description="The difficult task is complete.",
+        ),
+        database,
+    )["data"]
+    assert updated["feeling"] == "hopeful"
+    assert updated["color"] == "#496db2"
+    assert updated["description"] == "The difficult task is complete."
+    assert updated["check_in_date"] == "2026-10-28"
+
+    missing = create_check_in(
+        CheckInCreateRequest(
+            user_id=999,
+            feeling="sad",
+            color="#6f91aa",
+            description="This user does not exist.",
+            check_in_date="2026-10-28",
+        ),
+        database,
+    )
+    assert missing.status_code == 404
+    assert response_body(missing)["error"]["code"] == "not_found"
+
+    with pytest.raises(ValidationError):
+        CheckInCreateRequest(
+            user_id=user["id"],
+            feeling="   ",
+            color="#66836e",
+            description="Valid description",
+            check_in_date="2026-10-28",
+        )
+
+
 def test_conversation_history_is_public_and_ordered(api):
     _, database = api
     user = create_fictional_user(database, "Conversation API User")
@@ -385,9 +549,13 @@ def test_api_data_survives_application_restart(tmp_path):
     restored_user = get_user(user["id"], second_database)
     restored_history = list_exercise_sessions(user["id"], second_database)
 
-    assert restored_user["data"]["display_name"] == "Restart User"
+    assert restored_user["data"]["first_name"] == "Restart"
+    assert restored_user["data"]["last_name"] == "User"
     restored_sessions = restored_history["data"]["sessions"]
     assert len(restored_sessions) == 1
     assert restored_sessions[0]["status"] == "completed"
     assert restored_sessions[0]["measured_active_duration_ms"] == 42_231
     assert restored_sessions[0]["last_step"] == "taste_1"
+    login_account,
+    register_account,
+    update_account,

@@ -42,7 +42,7 @@ def database(tmp_path):
 
 
 def test_chat_service_bounds_context_and_response(database):
-    user = database.create_user("Bounded Chat User")
+    user = database.create_user("Bounded", "Chat User")
     conversation = database.create_conversation(user.id)
     for index in range(14):
         database.create_chat_log(
@@ -73,7 +73,7 @@ def test_chat_service_bounds_context_and_response(database):
     [ModelUnavailableError("unavailable"), ModelTimeoutError("timeout")],
 )
 def test_chat_service_persists_user_and_fallback_before_raising(database, error):
-    user = database.create_user("Failure Persistence User")
+    user = database.create_user("Failure", "Persistence User")
     provider = CapturingProvider(error=error)
 
     with pytest.raises(type(error)):
@@ -92,8 +92,8 @@ def test_chat_service_persists_user_and_fallback_before_raising(database, error)
 
 
 def test_chat_service_rejects_cross_user_conversation(database):
-    first_user = database.create_user("First User")
-    second_user = database.create_user("Second User")
+    first_user = database.create_user("First", "User")
+    second_user = database.create_user("Second", "User")
     conversation = database.create_conversation(first_user.id)
 
     with pytest.raises(ChatResourceNotFoundError):
@@ -108,7 +108,7 @@ def test_chat_service_rejects_cross_user_conversation(database):
 
 @pytest.mark.parametrize("content", ["   ", "x" * 2_001])
 def test_chat_service_enforces_message_boundary(database, content):
-    user = database.create_user("Input Boundary User")
+    user = database.create_user("Input", "Boundary User")
 
     with pytest.raises(ValueError):
         ChatService(database, CapturingProvider()).send_message(user.id, content)

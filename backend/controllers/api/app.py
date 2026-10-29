@@ -15,6 +15,7 @@ from backend.controllers.database_controller import (
     DatabaseController,
 )
 from backend.controllers.services import (
+    AccountService,
     ChatProvider,
     ChatService,
     ProviderSettings,
@@ -39,6 +40,7 @@ def create_app(
     settings = provider_settings or ProviderSettings.from_environment()
     provider = chat_provider or build_chat_provider(settings)
     chat_service = ChatService(database, provider)
+    account_service = AccountService(database)
     live_voice_service = voice_service or VoiceService(
         voice_settings or VoiceSettings.from_environment()
     )
@@ -47,6 +49,7 @@ def create_app(
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         database.initialize_schema()
         application.state.database_controller = database
+        application.state.account_service = account_service
         application.state.chat_service = chat_service
         application.state.voice_service = live_voice_service
         yield
@@ -57,6 +60,7 @@ def create_app(
         lifespan=lifespan,
     )
     application.state.database_controller = database
+    application.state.account_service = account_service
     application.state.chat_service = chat_service
     application.state.voice_service = live_voice_service
     application.include_router(router)

@@ -3,10 +3,10 @@ import test from 'node:test'
 
 import { ApiError } from '../src/api/client.js'
 import {
-  DEFAULT_DEMO_NAME,
-  DEMO_USER_ID_KEY,
-  resolveDemoUser,
-} from '../src/session/demoUser.js'
+  ACCOUNT_USER_ID_KEY,
+  createAccountSession,
+  resolveStoredAccount,
+} from '../src/session/accountSession.js'
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial))
@@ -23,59 +23,90 @@ function memoryStorage(initial = {}) {
   }
 }
 
-test('creates and remembers the fictional demo user', async () => {
+test('stays signed out when local storage has no account', async () => {
   const storage = memoryStorage()
-  const calls = []
-  const user = await resolveDemoUser({
+  const account = await resolveStoredAccount({
     storage,
     requests: {
-      async create(displayName, preferences) {
-        calls.push({ displayName, preferences })
-        return { id: 4, display_name: displayName, preferences }
+      async get() {
+        throw new Error('must not be called')
       },
     },
   })
 
-  assert.equal(user.id, 4)
-  assert.equal(storage.getItem(DEMO_USER_ID_KEY), '4')
-  assert.deepEqual(calls, [
-    { displayName: DEFAULT_DEMO_NAME, preferences: { prototype_account: true } },
-  ])
+  assert.equal(account, null)
 })
 
-test('recovers the remembered user without creating a duplicate', async () => {
-  const storage = memoryStorage({ [DEMO_USER_ID_KEY]: '9' })
-  let createCalled = false
-  const user = await resolveDemoUser({
+test('recovers the remembered signed-in account', async () => {
+  const storage = memoryStorage({ [ACCOUNT_USER_ID_KEY]: '9' })
+  const account = await resolveStoredAccount({
     storage,
     requests: {
       async get(userId) {
-        return { id: userId, display_name: DEFAULT_DEMO_NAME }
-      },
-      async create() {
-        createCalled = true
+        return {
+          id: userId,
+          username: 'account-user',
+          first_name: 'Account',
+          last_name: 'User',
+        }
       },
     },
   })
 
-  assert.equal(user.id, 9)
-  assert.equal(createCalled, false)
+  assert.equal(account.id, 9)
 })
 
-test('replaces a stale remembered identifier after not_found', async () => {
-  const storage = memoryStorage({ [DEMO_USER_ID_KEY]: '12' })
-  const user = await resolveDemoUser({
+test('clears a stale remembered identifier after not_found', async () => {
+  const storage = memoryStorage({ [ACCOUNT_USER_ID_KEY]: '12' })
+  const account = await resolveStoredAccount({
     storage,
     requests: {
       async get() {
         throw new ApiError('missing', { code: 'not_found', status: 404 })
       },
-      async create() {
-        return { id: 13, display_name: DEFAULT_DEMO_NAME }
+    },
+  })
+
+  assert.equal(account, null)
+  assert.equal(storage.getItem(ACCOUNT_USER_ID_KEY), null)
+})
+
+test('registers, remembers, updates, and logs out without storing credentials', async () => {
+  const storage = memoryStorage()
+  const session = createAccountSession({
+    storage,
+    requests: {
+      async register() {
+        return { id: 4, username: 'new-user', first_name: 'New', last_name: 'User' }
+      },
+      async update(userId, fields) {
+        return {
+          id: userId,
+          username: fields.username,
+          first_name: fields.first_name,
+          last_name: fields.last_name,
+        }
       },
     },
   })
 
-  assert.equal(user.id, 13)
-  assert.equal(storage.getItem(DEMO_USER_ID_KEY), '13')
+  await session.register({
+    username: 'new-user',
+    firstName: 'New',
+    lastName: 'User',
+    password: 'private-password',
+  })
+  assert.equal(storage.getItem(ACCOUNT_USER_ID_KEY), '4')
+  assert.equal(storage.getItem('password'), null)
+
+  await session.updateAccount({
+    username: 'updated',
+    first_name: 'Updated',
+    last_name: 'User',
+  })
+  assert.equal(session.user.value.first_name, 'Updated')
+
+  session.logout()
+  assert.equal(session.user.value, null)
+  assert.equal(storage.getItem(ACCOUNT_USER_ID_KEY), null)
 })

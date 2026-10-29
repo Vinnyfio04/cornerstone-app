@@ -1,5 +1,14 @@
 """Application services and bounded provider adapters."""
 
+from .account_service import (
+    AccountNotFoundError,
+    AccountResult,
+    AccountService,
+    InvalidCredentialsError,
+    hash_password,
+    verify_password,
+)
+
 from .chat_provider import (
     ChatProvider,
     ChatTurn,
@@ -28,6 +37,9 @@ from .voice_service import (
 )
 
 __all__ = [
+    "AccountNotFoundError",
+    "AccountResult",
+    "AccountService",
     "ChatProvider",
     "ChatResourceNotFoundError",
     "ChatResult",
@@ -52,4 +64,7 @@ __all__ = [
     "VoiceTimeoutError",
     "VoiceUnavailableError",
     "validate_sdp",
+    "InvalidCredentialsError",
+    "hash_password",
+    "verify_password",
 ]

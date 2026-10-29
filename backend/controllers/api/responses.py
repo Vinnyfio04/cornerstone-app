@@ -7,7 +7,8 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
-from backend.models import ChatLog, Conversation, ExerciseSession, User
+from backend.controllers.services import AccountResult
+from backend.models import CheckIn, ChatLog, Conversation, ExerciseSession, User
 
 
 def success(data: Any) -> dict[str, Any]:
@@ -27,11 +28,16 @@ def failure(status_code: int, code: str, message: str) -> JSONResponse:
 def public_user(user: User) -> dict[str, Any]:
     return {
         "id": user.id,
-        "display_name": user.display_name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "preferences": json.loads(user.preferences_json),
         "created_at": user.created_at,
         "updated_at": user.updated_at,
     }
+
+
+def public_account(account: AccountResult) -> dict[str, Any]:
+    return {**public_user(account.user), "username": account.username}
 
 
 def public_exercise_session(session: ExerciseSession) -> dict[str, Any]:
@@ -45,6 +51,18 @@ def public_exercise_session(session: ExerciseSession) -> dict[str, Any]:
         "started_at": session.started_at,
         "ended_at": session.ended_at,
         "last_step": session.last_step,
+    }
+
+
+def public_check_in(check_in: CheckIn) -> dict[str, Any]:
+    return {
+        "id": check_in.id,
+        "user_id": check_in.user_id,
+        "feeling": check_in.feeling,
+        "color": check_in.color,
+        "description": check_in.description,
+        "check_in_date": check_in.check_in_date,
+        "created_at": check_in.created_at,
     }
 
 

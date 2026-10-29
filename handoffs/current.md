@@ -1,101 +1,137 @@
 # Cornerstone Current Handoff
 
-Verified and updated on 2026-10-26 from `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
+Verified and updated on 2026-10-27 from `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
 
 ## Resume first
 
-Read `AGENTS.md`, `README.md`, `docs/assignment_instructions.md`, `docs/phase-1-contract.md`, `docs/mvc-contracts.md`, `docs/design-pipeline.md`, `docs/design_notes.md`, `docs/verification.md`, and this handoff. Recheck the branch and working tree before editing. Preserve the pre-existing user modification to `report.md` unless the user explicitly asks to change it.
+Read `AGENTS.md`, `README.md`, `docs/design-pipeline.md`, `docs/design_notes.md`, `docs/verification.md`, `docs/phase-1-contract.md`, `docs/mvc-contracts.md`, and this handoff. Recheck Git status and the latest user request before editing. Treat this file as a navigation aid rather than authority.
 
-## Objective and current state
+Do not discard or overwrite `report.md`. It is the user's only pre-existing working-tree change and the user explicitly prohibited changing it while creating this handoff.
 
-Cornerstone is a coursework prototype for low-effort grounding in fictional test scenarios. The current vertical slice demonstrates both chosen skills through the running interface, measured exercise duration and exit behavior, persisted text-chat conversations and sessions in SQLite, deterministic provider failure recovery, and an independent static support route. The latest increment adds optional spoken interaction to Chat, but its evidence is mocked rather than a paid browser/provider run.
+## Current objective and authorized scope
 
-The reviewed scope is:
+Cornerstone is a local coursework prototype for fictional testing of low-effort grounding skills. The current application connects the Vue View, FastAPI controllers, OpenAI provider boundaries, and SQLite persistence.
 
-- A home screen with hold-to-breathe pacing and a prominent 5-4-3-2-1 grounding entry.
-- A separate sensory-grounding flow with completion, early exit, measured duration, and persistence.
-- Persisted text chat with deterministic mock behavior, bounded OpenAI Responses configuration, fallback records, retry/reload controls, and process-restart history.
-- Optional microphone-started OpenAI Live interaction on the Chat screen.
-- A direct `/support` route that is View-owned and independent of model/API success. Its jurisdiction-specific resource content is still intentionally incomplete.
-- Fictional local demo-user CRUD rather than active authentication.
+The most recent user work focused on preparing `report.md` and identifying the browser/SQLite screenshots needed for submission. This handoff task was limited to documentation. No application code, dependency, provider setting, Git history, or database row was changed.
 
-## Latest implemented increment
+## Implemented project state
 
-Backend voice boundary:
+- The six Vue routes are Home, Grounding, Chat, History, Account, and `/support`.
+- Home contains a browser-timed 4-second inhale/6-second exhale exercise. Six cycles complete at 60 seconds; an early release is saved as exited.
+- Grounding contains the ordered 5-4-3-2-1 sequence with Back, Next, Finish, Leave, measured duration, completion/exit results, and persistence.
+- SQLite stores fictional users, conversations, ordered chat logs, and exercise sessions. History lists saved exercises and can reopen a selected conversation in Chat.
+- Chat immediately displays a pending typed user bubble, reconciles it with persisted rows on success, and removes it before fallback recovery on failure.
+- Production text chat is OpenAI-only. There is no runtime deterministic-success or `CHAT_PROVIDER=mock` mode. Missing configuration saves the user/fallback rows and returns the recoverable `model_unavailable` path. Tests inject focused provider doubles.
+- The user-supplied text instruction is stored in `backend/controllers/services/chat_prompt.py` and is sent through the Responses API `instructions` field. It remains server-owned.
+- Optional voice uses a server-owned `gpt-live-1` WebRTC boundary with Responses delegation through `VOICE_BACKEND_MODEL`. Transient input/output transcript bubbles, interruption, overlap, mute, End, timeout, navigation, page exit, and cleanup have mocked coverage.
+- Voice audio and transcript bubbles are intentionally not sent through the text-chat API or stored in SQLite.
+- The persistent `/support` route is View-owned and independent of API/model success. Its jurisdiction-specific resource content is still placeholder text.
+- Account uses a fictional local demo user with an editable display name. Registration, login, and authentication are not active.
 
-- `GET /api/voice/config` returns only readiness status and the bounded duration.
-- `POST /api/voice/sessions` accepts only a bounded SDP offer. The current app does not require a profile/owner ID for voice, so the endpoint does not accept one.
-- `backend/controllers/services/voice_service.py` owns `gpt-live-1`, `VOICE_BACKEND_MODEL`, the provider URL through the SDK, prompts, policy, event allowlists, the 15-second timeout, disabled retries, and the no-tools setting.
-- Provider creation uses `store: false` only as a session-retrieval setting; this is not a general provider-retention claim.
-- Responses expose only a validated session ID, SDP answer, and duration. Missing configuration, invalid or oversized SDP, provider failures, timeouts, and malformed provider responses produce sanitized public errors.
-- `LIVE_INSTRUCTIONS` is the short spoken prompt. `DELEGATED_BACKEND_INSTRUCTIONS` separately defines reviewed application scope, self-report versus interpretation, permission before suggesting an activity, honest missing-context handling, and the prohibitions against diagnosis, therapy/treatment claims, medical advice, implied human monitoring, or invented record access.
-- The independent crisis-support route is outside model control. Audio and voice transcripts are not persisted.
-
-Frontend voice boundary:
-
-- `frontend/src/pages/ChatPage.vue` adds optional voice without replacing text chat.
-- `frontend/src/voice/voiceSession.js` requests audio-only MediaDevices access, creates an `RTCPeerConnection`, remote audio element, and `oai-events` data channel, creates the data channel before the offer, waits for ICE gathering, exchanges SDP through FastAPI, and becomes active only after `session.started`.
-- The View presents permission, connecting, active, muted, closing, closed, and error states. Blocked playback exposes **Enable assistant audio**. Permission denial or any connection/provider error leaves text chat usable.
-- Stop, close, error, timeout, superseded starts, and component unmount release timers, tracks, handlers, data channel, peer connection, and remote audio state.
-
-## Architecture and durable decisions
+## Durable decisions
 
 - MVC direction remains `frontend/` View → `backend/controllers/` → `backend/models/`.
-- Models own entities, relationships, and `backend/models/data/`. Controllers own SQLite CRUD, FastAPI, provider orchestration, and business logic. The entire `frontend/` directory is the View.
-- The View communicates only through `docs/mvc-contracts.md`; it never imports Python or accesses SQLite.
-- Deterministic code owns exercise sequencing, timing, persistence, exits, errors, and support access. Model output is bounded and must not control the support route.
-- Do not diagnose, represent the prototype as therapy/treatment, imply human monitoring, invent crisis resources, or claim access to unsupplied records.
+- Deterministic application code owns exercise order, timing, completion, exit, persistence, errors, and support access.
+- The model may contribute bounded conversation only. It must not control exercise workflow or access to support information.
+- Do not diagnose, claim therapy/treatment, imply human monitoring, invent crisis resources, or claim access to information not supplied to the application.
+- Do not make a live provider call without explicit user approval. The ignored environment is configured well enough that starting Uvicorn with `--env-file .env` can incur paid text or voice usage.
 
-## Git and working-tree state
+## Current configuration
+
+A names-and-presence-only check of the ignored `.env` on 2026-10-27 found nonempty `OPEN_AI_API_KEY`, `VOICE_BACKEND_MODEL`, and `VOICE_MAX_SESSION_SECONDS`. `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, and `CHAT_PROVIDER` were absent. No value was printed or changed.
+
+Because production text chat is OpenAI-only, a credential-free run demonstrates the recoverable unavailable/fallback path rather than a successful mock reply. Historical mock-chat browser evidence remains valid only as earlier application/persistence evidence and must not be presented as a current live-model result.
+
+## Git state
 
 - Remote: `https://github.com/Vinnyfio04/cornerstone-app.git`
-- Branch: `codex/first-rough-implementation`
-- Upstream: none recorded
-- `HEAD`: `e7baca0f0a001550a1a1709cdf6ca684cef3afa3`
-- Commit: `Created initial framework of the project.`
-- The working tree contains the Phase 1 implementation and documentation as uncommitted modifications/untracked files relative to that initial commit. Do not discard or broadly overwrite it.
-- Modified tracked files include `.gitignore`, `AGENTS.md`, `README.md`, `backend/requirements.txt`, design docs, frontend package/runtime files, this handoff, and `report.md`.
-- Untracked implementation files include the current backend models/controllers/tests, MVC and verification docs, and frontend API/components/pages/router/session/utils/voice/tests.
-- `report.md` is known pre-existing user work and must be preserved.
+- Branch: `main`
+- Upstream: `origin/main`
+- `HEAD`: `5921804d3a92fe3be2f4f9cbbe96005eec2ecfe7`
+- Commit: `Update project report`
+- Before the handoff documentation edits, the only working-tree change was `M report.md`.
+- This handoff task additionally modifies `docs/verification.md` and `handoffs/current.md`.
+- No commit, push, branch change, reset, checkout, or destructive Git action was performed.
 
-## Current configuration and paid-call warning
+## Verification completed on 2026-10-27
 
-A names-and-presence-only inspection of the ignored `.env` found nonempty `OPEN_AI_API_KEY`, `VOICE_BACKEND_MODEL`, and `VOICE_MAX_SESSION_SECONDS`. `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, and explicit `CHAT_PROVIDER` were absent. No secret value was printed or changed.
+Commands:
 
-Starting Uvicorn with `--env-file .env` can therefore select billable OpenAI behavior for text and voice. Do not make a live provider call without explicit user approval. For a credential-free text demonstration, force `CHAT_PROVIDER=mock` in the task-started server process without editing the ignored environment.
+```powershell
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests -q --basetemp 'backend\.pytest_cache\handoff-2026-10-27'
+Set-Location frontend
+npm run test:unit
+npx oxlint .
+npx eslint . --no-cache
+npm run build
+& '..\backend\.venv\Scripts\python.exe' -m pip check
+```
 
-## Verification completed on 2026-10-26
+Results:
 
-- Backend: `40 passed in 5.12s` using a workspace-local pytest base temporary directory.
-- Frontend: `23` tests passed, `0` failed, including mocked voice/browser lifecycle tests.
-- Non-fixing Oxc and ESLint checks exited successfully without output.
-- Vite 8.3.4 built `60` modules in `1.45s`.
+- Backend: `42` tests passed.
+- Frontend: `53` tests passed.
+- Oxc and ESLint exited successfully without output.
+- Vite 8.3.4 built `64` modules successfully.
 - `pip check` reported no broken requirements.
-- No paid provider call was made.
+- No browser, provider, microphone, or paid call was exercised.
 
-Read-only SQLite inspection of `backend/models/data/cornerstone.db` found:
+Read-only SQLite inspection found:
 
-- `users`: 2; `login`: 0; `conversations`: 1; `chat_logs`: 6; `exercise_sessions`: 9.
-- Paced breathing: 2 completed, 4 exited. Sensory grounding: 2 completed, 1 exited.
-- Chat: 3 delivered user messages, 1 delivered assistant message, 2 fallback assistant messages.
-- `PRAGMA foreign_key_check`: no violations.
+- `users`: 2
+- `login`: 0
+- `conversations`: 6
+- `chat_logs`: 20
+- `exercise_sessions`: 34
+- Paced breathing: 2 completed, 23 exited
+- Sensory grounding: 2 completed, 7 exited
+- Chat: 10 delivered user rows, 6 delivered assistant rows, 4 fallback assistant rows
+- `PRAGMA foreign_key_check`: no violations
 
-Earlier browser/SQLite evidence demonstrates a completed sensory-grounding exercise, an exited grounding exercise, a complete 60-second breathing sequence, an early breathing exit, deterministic mock chat, fallback rows after model failure, history after API restart, and `/support` availability during an API outage. Exact observations are in `docs/verification.md`.
+These are ignored local fictional evidence rows, not committed seed data.
 
-The development processes used for earlier walkthroughs are no longer available. Start fresh servers before further browser work; do not assume FastAPI or Vite is running because the in-app browser still shows a localhost URL.
+## Known report discrepancy
 
-## Unfinished and unverified
+The working copy of `report.md` was intentionally not changed during this handoff. It currently contains facts that no longer match the merged application:
 
-- Real browser microphone permission/denial, WebRTC negotiation, remote audio, interruption, mute/unmute, closing, duration expiry, autoplay recovery, and Live data-channel behavior.
-- Any paid `gpt-live-1` or delegated Responses request, model quality, provider availability, billing, or provider-side retention behavior.
-- Post-live-session SQLite inspection confirming that no audio or transcripts were stored.
-- The fifteen-scenario evaluation matrix, component-level Vue tests, systematic accessibility review, and saved walkthrough recording.
-- Final approved jurisdiction-specific crisis-support resources.
-- Active authentication and supplied therapy-conversation reference material.
-- Broad visual refinement and an updated wireframe covering history, exits, failures, and support.
+- It says text chat uses a deterministic mock provider by default. Current production text chat is OpenAI-only.
+- It lists 40 backend tests, 49 frontend tests, and a 63-module build. The current verified results are 42 backend tests, 53 frontend tests, and a 64-module build.
+- Its screenshot links still need the user's final evidence URLs.
 
-## Exact next step
+Only correct these items when the user explicitly authorizes another report edit.
 
-Ask the user whether they explicitly approve one short paid end-to-end Live-audio check. If approved, start FastAPI with the ignored environment and start Vite, open `/chat`, have the user grant microphone permission, run one brief fictional interaction, verify all visible voice states plus mute/close/autoplay recovery where possible, then inspect SQLite read-only to confirm that no audio or voice transcript rows were added. Keep the session within the configured duration and report that `store: false` is not a general retention guarantee.
+## Files changed for this handoff
 
-If the user does not approve paid use, keep provider/browser behavior mocked and proceed with the fifteen-scenario evaluation matrix or the remaining accessibility/support-content work they choose. Do not infer paid approval, invent final support resources, or broaden into active authentication or absent reference-material ingestion.
+- `handoffs/current.md`: replaced stale branch, feature, configuration, verification, database, risk, and next-step information.
+- `docs/verification.md`: appended the 2026-10-27 handoff audit and current check results.
+- `report.md`: not touched during this handoff.
+
+## Unfinished or unverified
+
+Implemented but not live-verified:
+
+- A real OpenAI text response using the configured account, including latency, response quality, billing, and adherence to the supplied instruction.
+- Real microphone permission, WebRTC negotiation, remote audio, transcript timing/accuracy, interruption, mute/unmute, End, duration expiry, and autoplay recovery.
+- Read-only SQLite inspection immediately after a live voice session to reconfirm that voice audio/transcripts are not stored.
+
+Planned or incomplete:
+
+- Approved jurisdiction-specific support resources.
+- The fifteen-scenario fictional evaluation and three cross-case behavior checks.
+- Final screenshots, demonstration recording, and process recording.
+- Systematic accessibility review and final visual refinement.
+- Active authentication if it remains in scope.
+- Reviewed integration of `backend/models/data/intents.json`; it remains excluded from model input pending provenance and suitability review.
+
+## Exact recommended next step
+
+Resume submission evidence work without changing application behavior:
+
+1. Recheck `report.md` and ask for authorization before correcting its known runtime/test-count discrepancies.
+2. Start fresh local servers only for the evidence being captured. Do not assume an old localhost tab means either server is running.
+3. Capture browser and matching read-only SQLite evidence for exercise completion/duration, exercise exit, conversation persistence, request failure/recovery, and independent `/support` access.
+4. Keep historical mock evidence labeled as historical. Do not use it as proof of a current model contribution.
+5. Ask for explicit approval before any live OpenAI text or voice request. If approval is not given, document the live-provider limitation honestly and continue with non-paid evidence.
+6. Add the final commit hash, screenshot URLs, and recording URLs only after those artifacts exist.
+
+Do not invent final support resources, expose environment values, broaden into authentication, or modify `report.md` without a new user request.

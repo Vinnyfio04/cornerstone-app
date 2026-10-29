@@ -4,6 +4,7 @@
       <li><RouterLink to="/">Home</RouterLink></li>
       <li><RouterLink to="/grounding">Grounding</RouterLink></li>
       <li><RouterLink to="/chat">Chat</RouterLink></li>
+      <li><RouterLink to="/calendar">Check-in</RouterLink></li>
       <li><RouterLink to="/history">History</RouterLink></li>
       <li><RouterLink to="/account">Account</RouterLink></li>
     </ul>

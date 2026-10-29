@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import GroundingPrompt from '../components/GroundingPrompt.vue'
-import { useDemoUserSession } from '../session/demoUser.js'
+import { useAccountSession } from '../session/accountSession.js'
 import { createExercisePersistence } from '../session/exercisePersistence.js'
 import {
   GROUNDING_STEPS,
@@ -14,9 +14,9 @@ const currentStepIndex = ref(0)
 const exerciseStatus = ref('active')
 const measuredDurationMs = ref(0)
 const result = ref(null)
-const demoUserSession = useDemoUserSession()
+const accountSession = useAccountSession()
 const groundingPersistence = createExercisePersistence({
-  getUser: () => demoUserSession.user.value,
+  getUser: () => accountSession.user.value,
   skill: 'sensory_grounding',
 })
 
@@ -104,7 +104,7 @@ onMounted(() => {
 })
 
 watch(
-  () => demoUserSession.user.value,
+  () => accountSession.user.value,
   (user) => {
     if (
       user &&
@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
       class="persistence-note persistence-saved"
       aria-live="polite"
     >
-      Grounding activity saved to this fictional demo account.
+      Grounding activity saved to your account.
     </p>
     <p
       v-else-if="['error', 'unsaved'].includes(groundingPersistence.status.value)"

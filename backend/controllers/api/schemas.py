@@ -1,5 +1,6 @@
 """Validated request and response shapes for the Vue-facing JSON boundary."""
 
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -15,36 +16,99 @@ class RequestModel(BaseModel):
 
 
 class UserCreateRequest(RequestModel):
-    display_name: str = Field(min_length=1, max_length=100)
+    first_name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
     preferences: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("display_name")
+    @field_validator("first_name", "last_name")
     @classmethod
-    def display_name_must_not_be_blank(cls, value: str) -> str:
+    def name_must_not_be_blank(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("Display name cannot be blank")
+            raise ValueError("Name cannot be blank")
         return value
 
 
 class UserUpdateRequest(RequestModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=100)
+    first_name: str | None = Field(default=None, min_length=1, max_length=50)
+    last_name: str | None = Field(default=None, min_length=1, max_length=50)
     preferences: dict[str, Any] | None = None
 
-    @field_validator("display_name")
+    @field_validator("first_name", "last_name")
     @classmethod
-    def display_name_must_not_be_blank(cls, value: str | None) -> str | None:
+    def name_must_not_be_blank(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
         if not value:
-            raise ValueError("Display name cannot be blank")
+            raise ValueError("Name cannot be blank")
         return value
 
     @model_validator(mode="after")
     def at_least_one_field_is_required(self) -> "UserUpdateRequest":
-        if self.display_name is None and self.preferences is None:
+        if self.first_name is None and self.last_name is None and self.preferences is None:
             raise ValueError("At least one user field is required")
+        return self
+
+
+class AccountRegistrationRequest(RequestModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9._-]+$")
+    first_name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("username", "first_name", "last_name")
+    @classmethod
+    def account_text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Account fields cannot be blank")
+        return value
+
+
+class AccountLoginRequest(RequestModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def username_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Username cannot be blank")
+        return value
+
+
+class AccountUpdateRequest(RequestModel):
+    username: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[A-Za-z0-9._-]+$",
+    )
+    first_name: str | None = Field(default=None, min_length=1, max_length=50)
+    last_name: str | None = Field(default=None, min_length=1, max_length=50)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("username", "first_name", "last_name")
+    @classmethod
+    def optional_account_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Account fields cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def at_least_one_account_field_is_required(self) -> "AccountUpdateRequest":
+        if (
+            self.username is None
+            and self.first_name is None
+            and self.last_name is None
+            and self.password is None
+        ):
+            raise ValueError("At least one account field is required")
         return self
 
 
@@ -58,6 +122,44 @@ class ExerciseSessionUpdateRequest(RequestModel):
     status: Literal["completed", "exited"]
     measured_active_duration_ms: int = Field(ge=0)
     last_step: str | None = Field(default=None, max_length=100)
+
+
+class CheckInCreateRequest(RequestModel):
+    user_id: int = Field(gt=0)
+    feeling: str = Field(min_length=1, max_length=50)
+    color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    description: str = Field(min_length=1, max_length=2_000)
+    check_in_date: date
+
+    @field_validator("feeling", "description")
+    @classmethod
+    def check_in_text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Check-in text cannot be blank")
+        return value
+
+
+class CheckInUpdateRequest(RequestModel):
+    feeling: str | None = Field(default=None, min_length=1, max_length=50)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    description: str | None = Field(default=None, min_length=1, max_length=2_000)
+
+    @field_validator("feeling", "description")
+    @classmethod
+    def optional_check_in_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Check-in text cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def at_least_one_check_in_field_is_required(self) -> "CheckInUpdateRequest":
+        if self.feeling is None and self.color is None and self.description is None:
+            raise ValueError("At least one check-in field is required")
+        return self
 
 
 class ChatMessageRequest(RequestModel):

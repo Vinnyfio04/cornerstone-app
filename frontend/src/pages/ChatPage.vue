@@ -5,7 +5,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { chatApi } from '../api/chat.js'
 import { voiceApi } from '../api/voice.js'
 import ChatMessage from '../components/ChatMessage.vue'
-import { useDemoUserSession } from '../session/demoUser.js'
+import { useAccountSession } from '../session/accountSession.js'
 import { selectConversation } from '../utils/conversationSelection.js'
 import {
   createPendingUserMessage,
@@ -15,7 +15,7 @@ import {
 import { createVoiceSessionController } from '../voice/voiceSession.js'
 import { attachVoiceCleanup } from '../voice/voiceLifecycle.js'
 
-const demoUserSession = useDemoUserSession()
+const accountSession = useAccountSession()
 const route = useRoute()
 const router = useRouter()
 const conversationId = ref(null)
@@ -108,7 +108,7 @@ const voiceController = createVoiceSessionController({
 const voiceCleanup = attachVoiceCleanup({ controller: voiceController })
 
 async function loadLatestConversation({ recoverLatest = false } = {}) {
-  const user = demoUserSession.user.value
+  const user = accountSession.user.value
   if (!user) {
     return
   }
@@ -129,7 +129,7 @@ async function loadLatestConversation({ recoverLatest = false } = {}) {
     if (selection.status === 'unavailable') {
       conversationId.value = null
       messages.value = []
-      errorMessage.value = 'That saved conversation is unavailable for this demo account.'
+      errorMessage.value = 'That saved conversation is unavailable for this account.'
       return
     }
 
@@ -150,7 +150,7 @@ async function loadLatestConversation({ recoverLatest = false } = {}) {
 }
 
 async function sendMessage(messageText = draft.value) {
-  const user = demoUserSession.user.value
+  const user = accountSession.user.value
   const content = messageText.trim()
   if (!user || !content || isSending.value) {
     return
@@ -262,7 +262,7 @@ function handleMessageListScroll() {
 
 watch(
   [
-    () => demoUserSession.user.value,
+    () => accountSession.user.value,
     () => route.query.conversation,
     () => route.query.new,
   ],
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
             v-model="draft"
             type="text"
             maxlength="2000"
-            :disabled="!demoUserSession.user.value || isSending"
+            :disabled="!accountSession.user.value || isSending"
             placeholder="Write a message…"
           />
           <small class="character-count">{{ draft.length }} / 2000</small>
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="submit"
-          :disabled="!demoUserSession.user.value || !draft.trim() || isSending"
+          :disabled="!accountSession.user.value || !draft.trim() || isSending"
         >
           Send
         </button>

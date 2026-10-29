@@ -1,11 +1,11 @@
 <script setup>
 import BreathingCircle from '../components/BreathingCircle.vue'
+import { useAccountSession } from '../session/accountSession.js'
 import { createExercisePersistence } from '../session/exercisePersistence.js'
-import { useDemoUserSession } from '../session/demoUser.js'
 
-const demoUserSession = useDemoUserSession()
+const accountSession = useAccountSession()
 const breathingPersistence = createExercisePersistence({
-  getUser: () => demoUserSession.user.value,
+  getUser: () => accountSession.user.value,
   plannedDurationMs: 60_000,
   skill: 'paced_breathing',
 })
@@ -43,7 +43,10 @@ function finishBreathingPersistence(result) {
       class="persistence-note persistence-error"
       aria-live="polite"
     >
-      This breathing result was not saved. The exercise remains available.
+      <template v-if="accountSession.user.value">
+        This breathing result was not saved. The exercise remains available.
+      </template>
+      <template v-else>Sign in to save future breathing activity.</template>
     </p>
 
     <section class="action-card grounding-card" aria-labelledby="grounding-title">
@@ -53,7 +56,7 @@ function finishBreathingPersistence(result) {
         <p>Move through five clear prompts using what you can see, feel, hear, smell, and taste.</p>
       </div>
       <RouterLink class="action-link action-link-primary" to="/grounding">
-        Start 5-4-3-2-1 grounding
+        {{ accountSession.user.value ? 'Start 5-4-3-2-1 grounding' : 'Sign in for grounding' }}
       </RouterLink>
     </section>
 
@@ -62,7 +65,9 @@ function finishBreathingPersistence(result) {
         <h2 id="chat-title">Talk through what happened</h2>
         <p>Open the conversation page when writing feels more useful than another exercise.</p>
       </div>
-      <RouterLink class="action-link action-link-secondary" to="/chat">Start a chat</RouterLink>
+      <RouterLink class="action-link action-link-secondary" to="/chat">
+        {{ accountSession.user.value ? 'Start a chat' : 'Sign in to chat' }}
+      </RouterLink>
     </section>
   </main>
 </template>

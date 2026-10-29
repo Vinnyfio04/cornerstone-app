@@ -44,7 +44,7 @@ cornerstone-app/
 |   |   +-- pages/                    [current] six routed Phase 1 screens
 |   |   +-- utils/                    [current] deterministic skill calculations
 |   |   +-- api/                      [current] documented fetch request modules
-|   |   +-- session/                  [current] demo user and exercise persistence
+|   |   +-- session/                  [current] account and exercise persistence
 |   |   +-- voice/                    [current] framework-free WebRTC lifecycle controller
 |   |   `-- router/                   [current] six-route Vue Router mapping
 |   +-- tests/                        [current] Node calculation/request unit tests

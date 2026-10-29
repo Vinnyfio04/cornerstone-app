@@ -44,7 +44,7 @@ test('starts and finishes one persisted exercise session', async () => {
   ])
 })
 
-test('keeps the deterministic exercise usable without a demo user', async () => {
+test('does not persist an exercise without a signed-in account', async () => {
   const persistence = createExercisePersistence({
     getUser: () => null,
     skill: 'sensory_grounding',

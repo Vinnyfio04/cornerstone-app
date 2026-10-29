@@ -18,7 +18,7 @@ Build a functional framework connecting the Vue View, FastAPI controllers, and S
 | `/grounding` | 5-4-3-2-1 grounding | Deterministic five-step sequence with no required typing |
 | `/chat` | Conversation | Persisted text chat through OpenAI when configured; otherwise a recoverable unavailable state |
 | `/history` | Saved activity | Lists persisted chat messages and exercise sessions for the active fictional user |
-| `/account` | Account framework | Profile CRUD shell; authentication remains inactive unless explicitly approved |
+| `/account` | Local account | Registration, sign-in, profile/credential update, logout, and account deletion |
 | `/support` | Crisis-support information | Static View content that works without FastAPI, SQLite, OpenAI, or classification |
 
 The complete `frontend/` directory is the MVC View. Screen files may live under `frontend/src/pages/`; no nested MVC `views/` directory will be introduced.
@@ -74,11 +74,11 @@ The supplied therapy-conversation material will be used only after the user prov
 
 ## Account and history decision
 
-Phase 1 uses one clearly labeled fictional local demo user so the skill and chat flows can be exercised without pretending that authentication is complete. Existing `users`, `login`, and `chat_logs` CRUD remains available at the model/controller boundary. The account page is a CRUD framework, not a security claim.
+The approved account increment replaces the automatically created fictional demo user with explicit local registration and sign-in. Registration creates a `users` row and its one-to-one `login` row in one transaction. Passwords are salted and PBKDF2-hashed by a controller service; plaintext passwords and password hashes are never returned to the View or stored in browser storage.
 
-Working registration/login is deferred until password hashing, session handling, and authentication tests are deliberately scoped. Plaintext passwords must never be persisted or returned.
+The browser stores only the active integer user identifier and restores the corresponding public account after reload. This deliberately small coursework session does not issue server authorization tokens, so it must not be represented as production authentication. Breathing and the independent support route remain available while signed out. Grounding, chat, voice, history, and persistence require a signed-in account.
 
-The history page shows only the active fictional user's saved chat messages and exercise sessions, including completion/exit status, measured duration, and model delivery status. It must not imply that another person is monitoring the history.
+The history page shows only the active account's saved chat messages and exercise sessions, including completion/exit status, measured duration, and model delivery status. It must not imply that another person is monitoring the history.
 
 ## Persistence additions
 
@@ -136,7 +136,7 @@ Phase 1 is ready for review when evidence shows:
 The following decisions are adopted for this contract unless changed during review:
 
 1. Releasing before 60 seconds means `exited`; reaching six cycles means `completed`.
-2. Phase 1 uses a fictional demo user and defers active login.
+2. The later approved account increment uses explicit local registration and sign-in while preserving signed-out access to breathing and support information.
 3. `conversations` and `exercise_sessions` are added to meet persistence and evidence needs.
 4. Production text chat always targets the OpenAI adapter. Credential-free runs expose a recoverable unavailable state; tests inject focused provider doubles without creating a runtime mock mode.
 5. Final jurisdiction-specific crisis-resource content remains blocked on user approval.

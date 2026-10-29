@@ -8,7 +8,8 @@ class User:
     """Primary identity for locally persisted Cornerstone data."""
 
     id: int
-    display_name: str
+    first_name: str
+    last_name: str
     preferences_json: str
     created_at: str
     updated_at: str
@@ -62,3 +63,16 @@ class ExerciseSession:
     started_at: str
     ended_at: str | None
     last_step: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class CheckIn:
+    """One user-authored emotional check-in for a calendar date."""
+
+    id: int
+    user_id: int
+    feeling: str
+    color: str
+    description: str
+    check_in_date: str
+    created_at: str
