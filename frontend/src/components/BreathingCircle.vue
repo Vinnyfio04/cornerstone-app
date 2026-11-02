@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
+import { createBreathingAudioController } from '../utils/breathingAudio.js'
 import {
   BREATHING_CYCLE_DURATION_MS,
   BREATHING_CYCLE_COUNT,
@@ -18,6 +19,7 @@ const snapshot = ref(getBreathingSnapshot(0))
 
 let animationFrameId = null
 let startedAt = null
+const breathingAudio = createBreathingAudioController()
 
 const MINIMUM_CIRCLE_SCALE = 0.74
 const MAXIMUM_CIRCLE_SCALE = 1.08
@@ -105,6 +107,7 @@ function cancelAnimationFrameUpdate() {
 
 function completeExercise() {
   cancelAnimationFrameUpdate()
+  breathingAudio.stop()
   exerciseStatus.value = 'completed'
   endReason.value = 'completed'
   startedAt = null
@@ -140,6 +143,7 @@ function startExercise() {
   endReason.value = null
   snapshot.value = getBreathingSnapshot(0)
   startedAt = window.performance.now()
+  breathingAudio.play()
   emit('exerciseStarted')
   animationFrameId = window.requestAnimationFrame(updateExercise)
 }
@@ -151,6 +155,7 @@ function stopExercise(reason = 'release') {
 
   snapshot.value = getBreathingSnapshot(window.performance.now() - startedAt)
   cancelAnimationFrameUpdate()
+  breathingAudio.stop()
 
   if (snapshot.value.completed) {
     completeExercise()
@@ -197,6 +202,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopExercise('navigation')
+  breathingAudio.stop()
   cancelAnimationFrameUpdate()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })

@@ -52,7 +52,7 @@ The history exists to support visible history and future, explicit personalizati
 
 ### `check_ins`
 
-A user may have one check-in per local calendar date. Each row contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. `color` is a validated six-digit hex color chosen by the View; older check-ins receive the neutral `#66836e` marker during migration. `check_in_date` is an ISO `YYYY-MM-DD` value supplied by the View so calendar placement does not depend on the server time zone. Deleting a user cascades to that user's check-ins. The database uniqueness constraint on `(user_id, check_in_date)` prevents duplicate daily markers.
+A user may have multiple check-ins on a local calendar date. Each row contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. `color` is a validated six-digit hex color chosen by the View; older check-ins receive the neutral `#66836e` marker during migration. `check_in_date` is an ISO `YYYY-MM-DD` value supplied by the View so calendar placement does not depend on the server time zone. Deleting a user cascades to that user's check-ins. The `(user_id, check_in_date)` index supports retrieving every event for a selected day without imposing a daily uniqueness constraint.
 
 ## Model–Controller contract
 
@@ -219,9 +219,9 @@ Response data contains a `sessions` array ordered newest first. It does not calc
 }
 ```
 
-The response contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. Feeling text is limited to 50 characters, color must be a six-digit hex value, and description text is limited to 2,000 characters. A second check-in for the same user and date returns `conflict`.
+The response contains `id`, `user_id`, `feeling`, `color`, `description`, `check_in_date`, and `created_at`. Feeling text is limited to 50 characters, color must be a six-digit hex value, and description text is limited to 2,000 characters. Additional check-ins may use the same user and date and receive distinct identifiers.
 
-`GET /api/users/{user_id}/check-ins` returns a `check_ins` array ordered by calendar date. The View uses the ISO date as the calendar key and renders each saved marker with its stored color. Custom feelings expose preset swatches plus a full color picker; color is supplemented by accessible text and a legend.
+`GET /api/users/{user_id}/check-ins` returns a `check_ins` array ordered by calendar date and identifier. The View groups all rows with the same ISO date, renders up to three stored colors on the date, and lists every saved event in the selected-day panel. Custom feelings expose preset swatches plus a full color picker; color is supplemented by accessible text and a legend.
 
 `PATCH /api/check-ins/{check_in_id}` accepts one or more of `feeling`, `color`, and `description`. The calendar View allows users to create entries for today or earlier dates and to reopen any saved entry for editing. Future dates remain read-only. Editing does not move an entry to a different calendar date.
 

@@ -25,6 +25,8 @@ const description = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const isEditing = ref(false)
+const isCreatingAdditional = ref(false)
+const editingCheckInId = ref(null)
 const errorMessage = ref('')
 const confirmationMessage = ref('')
 
@@ -58,15 +60,22 @@ const yearOptions = computed(() => {
   const endYear = Math.max(today.getFullYear() + 5, visibleYear)
   return Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index)
 })
-const checkInsByDate = computed(
-  () => new Map(checkIns.value.map((checkIn) => [checkIn.check_in_date, checkIn])),
+const checkInsByDate = computed(() => {
+  const grouped = new Map()
+  for (const checkIn of checkIns.value) {
+    const entries = grouped.get(checkIn.check_in_date) ?? []
+    entries.push(checkIn)
+    grouped.set(checkIn.check_in_date, entries)
+  }
+  return grouped
+})
+const selectedCheckIns = computed(() => checkInsByDate.value.get(selectedDate.value) ?? [])
+const editingCheckIn = computed(
+  () => checkIns.value.find((checkIn) => checkIn.id === editingCheckInId.value) ?? null,
 )
-const selectedCheckIn = computed(() => checkInsByDate.value.get(selectedDate.value) ?? null)
 const selectedDateLabel = computed(() => formatDisplayDate(selectedDate.value))
 const canCreateSelectedDate = computed(
-  () =>
-    canCreateCheckIn(selectedDate.value, todayKey) &&
-    selectedCheckIn.value === null,
+  () => canCreateCheckIn(selectedDate.value, todayKey),
 )
 const formHeading = computed(() =>
   selectedDate.value === todayKey ? 'How do you feel today?' : 'How did you feel that day?',
@@ -131,9 +140,10 @@ function markerStyle(checkIn) {
 
 function dateAriaLabel(cell) {
   const dateLabel = formatDisplayDate(cell.dateKey)
-  const checkIn = checkInsByDate.value.get(cell.dateKey)
-  if (checkIn) {
-    return `${dateLabel}, check-in saved: ${checkIn.feeling}`
+  const entries = checkInsByDate.value.get(cell.dateKey) ?? []
+  if (entries.length > 0) {
+    const feelings = entries.map((checkIn) => checkIn.feeling).join(', ')
+    return `${dateLabel}, ${entries.length} check-ins saved: ${feelings}`
   }
   if (cell.dateKey === todayKey) {
     return `${dateLabel}, today, no check-in saved`
@@ -147,19 +157,26 @@ function resetForm() {
   customColor.value = FEELING_COLORS.other
   description.value = ''
   isEditing.value = false
+  isCreatingAdditional.value = false
+  editingCheckInId.value = null
 }
 
-function startEditing() {
-  const checkIn = selectedCheckIn.value
-  if (!checkIn) {
-    return
-  }
+function startEditing(checkIn) {
+  resetForm()
   const category = feelingCategory(checkIn.feeling)
   selectedFeeling.value = category
   otherFeeling.value = category === 'other' ? checkIn.feeling : ''
   customColor.value = checkIn.color || FEELING_COLORS[category]
   description.value = checkIn.description
   isEditing.value = true
+  editingCheckInId.value = checkIn.id
+  confirmationMessage.value = ''
+  errorMessage.value = ''
+}
+
+function startAdditionalCheckIn() {
+  resetForm()
+  isCreatingAdditional.value = true
   confirmationMessage.value = ''
   errorMessage.value = ''
 }
@@ -211,7 +228,7 @@ async function saveCheckIn() {
   isSaving.value = true
   try {
     const saved = editingAtRequest
-      ? await checkInsApi.update(selectedCheckIn.value.id, {
+      ? await checkInsApi.update(editingCheckIn.value.id, {
           feeling,
           color,
           description: trimmedDescription,
@@ -234,7 +251,7 @@ async function saveCheckIn() {
       await loadCheckIns()
       errorMessage.value = editingAtRequest
         ? 'This check-in could not be updated. Try again.'
-        : 'A check-in has already been saved for this date.'
+        : 'This check-in could not be saved. Try again.'
     } else {
       errorMessage.value = error.message
     }
@@ -259,7 +276,7 @@ watch(
     <header class="page-heading">
       <p class="eyebrow">A moment for yourself</p>
       <h1>Daily check-in</h1>
-      <p>Notice how each day feels. Add or edit past check-ins from the calendar.</p>
+      <p>Notice how each day feels.</p>
     </header>
 
     <p v-if="isLoading" class="loading-message" aria-live="polite">Loading your calendar…</p>
@@ -326,11 +343,20 @@ watch(
                   <span>{{ cell.day }}</span>
                   <span
                     v-if="checkInsByDate.has(cell.dateKey)"
-                    class="check-in-marker"
-                    :class="markerClass(checkInsByDate.get(cell.dateKey))"
-                    :style="markerStyle(checkInsByDate.get(cell.dateKey))"
+                    class="marker-stack"
                     aria-hidden="true"
-                  ></span>
+                  >
+                    <i
+                      v-for="checkIn in checkInsByDate.get(cell.dateKey).slice(0, 3)"
+                      :key="checkIn.id"
+                      class="check-in-marker"
+                      :class="markerClass(checkIn)"
+                      :style="markerStyle(checkIn)"
+                    ></i>
+                    <small v-if="checkInsByDate.get(cell.dateKey).length > 3">
+                      +{{ checkInsByDate.get(cell.dateKey).length - 3 }}
+                    </small>
+                  </span>
                 </button>
               </td>
             </tr>
@@ -346,22 +372,39 @@ watch(
       </section>
 
       <section class="check-in-card" aria-labelledby="check-in-heading">
-        <template v-if="selectedCheckIn && !isEditing">
-          <p class="eyebrow">Saved check-in</p>
+        <template v-if="selectedCheckIns.length > 0 && !isEditing && !isCreatingAdditional">
+          <p class="eyebrow">Saved check-ins</p>
           <h2 id="check-in-heading">{{ selectedDateLabel }}</h2>
-          <div class="saved-feeling">
-            <span
-              class="check-in-marker"
-              :class="markerClass(selectedCheckIn)"
-              :style="markerStyle(selectedCheckIn)"
-            ></span>
-            <strong>{{ selectedCheckIn.feeling }}</strong>
+          <div class="saved-check-in-list">
+            <article v-for="checkIn in selectedCheckIns" :key="checkIn.id" class="saved-check-in-item">
+              <div class="saved-feeling">
+                <span
+                  class="check-in-marker"
+                  :class="markerClass(checkIn)"
+                  :style="markerStyle(checkIn)"
+                ></span>
+                <strong>{{ checkIn.feeling }}</strong>
+              </div>
+              <p class="saved-description">{{ checkIn.description }}</p>
+              <button class="edit-button" type="button" @click="startEditing(checkIn)">
+                Edit event
+              </button>
+            </article>
           </div>
-          <p class="saved-description">{{ selectedCheckIn.description }}</p>
-          <button class="edit-button" type="button" @click="startEditing">Edit check-in</button>
+          <button
+            v-if="canCreateSelectedDate"
+            class="add-event-button"
+            type="button"
+            @click="startAdditionalCheckIn"
+          >
+            Add another event
+          </button>
         </template>
 
-        <form v-else-if="canCreateSelectedDate || isEditing" @submit.prevent="saveCheckIn">
+        <form
+          v-else-if="canCreateSelectedDate || isEditing || isCreatingAdditional"
+          @submit.prevent="saveCheckIn"
+        >
           <div>
             <p class="eyebrow">{{ isEditing ? 'Edit check-in' : 'Check in' }}</p>
             <h2 id="check-in-heading">{{ formHeading }}</h2>
@@ -437,7 +480,13 @@ watch(
           </label>
 
           <div class="form-actions">
-            <button v-if="isEditing" class="cancel-button" type="button" :disabled="isSaving" @click="cancelEditing">
+            <button
+              v-if="isEditing || isCreatingAdditional"
+              class="cancel-button"
+              type="button"
+              :disabled="isSaving"
+              @click="cancelEditing"
+            >
               Cancel
             </button>
             <button class="save-button" type="submit" :disabled="isSaving">
@@ -655,9 +704,24 @@ td {
   background: var(--marker-color, var(--color-primary));
 }
 
-.date-button .check-in-marker {
+.marker-stack {
   position: absolute;
   bottom: 0.32rem;
+  display: flex;
+  align-items: center;
+  gap: 0.12rem;
+}
+
+.marker-stack .check-in-marker {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.marker-stack small {
+  color: var(--color-text-soft);
+  font-size: 0.55rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .marker-happy,
@@ -887,6 +951,32 @@ td {
 
 .edit-button {
   width: 100%;
+}
+
+.saved-check-in-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.saved-check-in-item {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-background-soft);
+}
+
+.add-event-button {
+  min-height: 3rem;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--color-primary);
+  border-radius: 999px;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  cursor: pointer;
+  font-weight: 750;
 }
 
 .save-button:disabled {

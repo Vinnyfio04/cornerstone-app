@@ -105,8 +105,7 @@ class DatabaseController:
                     check_in_date TEXT NOT NULL
                         CHECK (check_in_date IS date(check_in_date)),
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    UNIQUE (user_id, check_in_date)
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_check_ins_user_date
@@ -176,7 +175,7 @@ class DatabaseController:
 
     @staticmethod
     def _initialize_check_ins_schema(connection: sqlite3.Connection) -> None:
-        """Add marker color without discarding check-ins from an older schema."""
+        """Add marker color and allow multiple check-ins without losing rows."""
         columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(check_ins)")
         }
@@ -187,6 +186,56 @@ class DatabaseController:
                 ADD COLUMN color TEXT NOT NULL DEFAULT '#66836e'
                 """
             )
+
+        has_daily_unique_index = any(
+            row["unique"]
+            and [
+                item["name"]
+                for item in connection.execute(
+                    f"PRAGMA index_info('{row['name']}')"
+                )
+            ]
+            == ["user_id", "check_in_date"]
+            for row in connection.execute("PRAGMA index_list(check_ins)")
+        )
+        if has_daily_unique_index:
+            connection.execute("ALTER TABLE check_ins RENAME TO check_ins_single_daily")
+            connection.execute(
+                """
+                CREATE TABLE check_ins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    feeling TEXT NOT NULL CHECK (trim(feeling) <> ''),
+                    color TEXT NOT NULL DEFAULT '#66836e'
+                        CHECK (color GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'),
+                    description TEXT NOT NULL CHECK (trim(description) <> ''),
+                    check_in_date TEXT NOT NULL
+                        CHECK (check_in_date IS date(check_in_date)),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO check_ins (
+                    id, user_id, feeling, color, description,
+                    check_in_date, created_at
+                )
+                SELECT
+                    id, user_id, feeling, color, description,
+                    check_in_date, created_at
+                FROM check_ins_single_daily
+                """
+            )
+            connection.execute("DROP TABLE check_ins_single_daily")
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_check_ins_user_date
+            ON check_ins(user_id, check_in_date)
+            """
+        )
 
     @staticmethod
     def _create_chat_logs_table(

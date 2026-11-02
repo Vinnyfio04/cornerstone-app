@@ -460,6 +460,19 @@ def test_check_in_create_and_list_contract(api):
     assert updated["description"] == "The difficult task is complete."
     assert updated["check_in_date"] == "2026-10-28"
 
+    second = create_check_in(
+        CheckInCreateRequest(
+            user_id=user["id"],
+            feeling="sad",
+            color="#6f91aa",
+            description="A second event on the same date.",
+            check_in_date="2026-10-28",
+        ),
+        database,
+    )["data"]
+    listed = list_check_ins(user["id"], database)["data"]["check_ins"]
+    assert [item["id"] for item in listed] == [updated["id"], second["id"]]
+
     missing = create_check_in(
         CheckInCreateRequest(
             user_id=999,

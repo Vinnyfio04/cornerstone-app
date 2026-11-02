@@ -167,7 +167,7 @@ def test_exercise_validation_and_completion(database):
         database.update_exercise_session(session.id, measured_active_duration_ms=-1)
 
 
-def test_check_in_persistence_month_filter_uniqueness_and_cascade(database):
+def test_check_in_persistence_multiple_daily_entries_and_cascade(database):
     user = database.create_user("Calendar", "User")
     october = database.create_check_in(
         user.id,
@@ -203,10 +203,18 @@ def test_check_in_persistence_month_filter_uniqueness_and_cascade(database):
     assert updated.description == "The assignment is finished and I feel lighter."
     assert updated.check_in_date == "2026-10-28"
 
-    with pytest.raises(sqlite3.IntegrityError):
-        database.create_check_in(
-            user.id, "sad", "#6f91aa", "Duplicate day.", "2026-10-28"
-        )
+    second_october = database.create_check_in(
+        user.id,
+        "sad",
+        "#6f91aa",
+        "A second event on the same day.",
+        "2026-10-28",
+    )
+    assert database.list_check_ins(
+        user.id,
+        start_date="2026-10-01",
+        end_date="2026-10-31",
+    ) == [updated, second_october]
     with pytest.raises(sqlite3.IntegrityError):
         database.create_check_in(
             user.id, "sad", "#6f91aa", "Invalid date.", "not-a-date"
@@ -258,6 +266,14 @@ def test_existing_check_ins_receive_a_default_marker_color(tmp_path):
     assert restored.feeling == "overwhelmed"
     assert restored.color == "#66836e"
     assert restored.description == "Preserve this row."
+    second = controller.create_check_in(
+        1,
+        "happy",
+        "#d2a13f",
+        "A second preserved-day event.",
+        "2026-10-27",
+    )
+    assert [item.id for item in controller.list_check_ins(1)] == [restored.id, second.id]
 
 
 def test_legacy_chat_logs_are_migrated_without_row_loss(tmp_path):
