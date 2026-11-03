@@ -5,6 +5,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { chatApi } from '../api/chat.js'
 import { voiceApi } from '../api/voice.js'
 import ChatMessage from '../components/ChatMessage.vue'
+import PastConversations from '../components/PastConversations.vue'
 import { useAccountSession } from '../session/accountSession.js'
 import { selectConversation } from '../utils/conversationSelection.js'
 import {
@@ -152,7 +153,7 @@ async function loadLatestConversation({ recoverLatest = false } = {}) {
 async function sendMessage(messageText = draft.value) {
   const user = accountSession.user.value
   const content = messageText.trim()
-  if (!user || !content || isSending.value) {
+  if (!user || !content || isSending.value || isLoading.value) {
     return
   }
 
@@ -203,6 +204,7 @@ function retryMessage() {
 }
 
 function startNewConversation() {
+  if (isSending.value || isLoading.value) return
   if (!['idle', 'closed', 'error'].includes(voiceState.value.status)) {
     voiceController.stop()
   }
@@ -214,6 +216,18 @@ function startNewConversation() {
   errorMessage.value = ''
   shouldFollowLatestMessage.value = true
   void router.push({ name: 'chat', query: { new: '1' } })
+}
+
+function openSavedConversation(id) {
+  if (isSending.value || isLoading.value || conversationId.value === id) return
+  voiceController.stop()
+  voiceController.clearTranscript()
+  draft.value = ''
+  failedDraft.value = ''
+  errorMessage.value = ''
+  messages.value = []
+  shouldFollowLatestMessage.value = true
+  void router.push({ name: 'chat', query: { conversation: String(id) } })
 }
 
 function startVoice() {
@@ -313,9 +327,21 @@ onBeforeUnmount(() => {
         <p class="mode-label">Model connection: {{ chatMode }}</p>
         <p class="save-label">{{ conversationSaveLabel }}</p>
       </div>
-      <button type="button" class="button-secondary" @click="startNewConversation">
-        New conversation
-      </button>
+      <div class="conversation-actions">
+        <PastConversations
+          :user-id="accountSession.user.value?.id"
+          :disabled="isSending || isLoading"
+          @select="openSavedConversation"
+        />
+        <button
+          type="button"
+          class="button-secondary"
+          :disabled="isSending || isLoading"
+          @click="startNewConversation"
+        >
+          New conversation
+        </button>
+      </div>
     </div>
 
     <aside v-if="errorMessage" class="error-card" role="alert">
@@ -360,7 +386,7 @@ onBeforeUnmount(() => {
             v-model="draft"
             type="text"
             maxlength="2000"
-            :disabled="!accountSession.user.value || isSending"
+            :disabled="!accountSession.user.value || isSending || isLoading"
             placeholder="Write a message…"
           />
           <small class="character-count">{{ draft.length }} / 2000</small>
@@ -390,7 +416,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="submit"
-          :disabled="!accountSession.user.value || !draft.trim() || isSending"
+          :disabled="!accountSession.user.value || !draft.trim() || isSending || isLoading"
         >
           Send
         </button>
@@ -476,12 +502,22 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .save-label {
   margin-top: 0.2rem;
   color: var(--color-text-soft);
   font-size: 0.85rem;
+}
+
+.conversation-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  max-width: 100%;
 }
 
 .message-list {
@@ -726,6 +762,13 @@ button:focus-visible,
 input:focus-visible {
   outline: 3px solid var(--color-accent);
   outline-offset: 3px;
+}
+
+@media (max-width: 48rem) {
+  .conversation-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 34rem) {

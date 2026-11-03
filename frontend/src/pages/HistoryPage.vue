@@ -1,14 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue'
 
-import { chatApi } from '../api/chat.js'
 import { sessionsApi } from '../api/sessions.js'
-import ChatMessage from '../components/ChatMessage.vue'
 import { useAccountSession } from '../session/accountSession.js'
 
 const accountSession = useAccountSession()
 const exerciseSessions = ref([])
-const conversations = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 
@@ -36,15 +33,6 @@ function skillLabel(skill) {
   return skill === 'paced_breathing' ? 'Paced breathing' : '5-4-3-2-1 grounding'
 }
 
-function conversationTitle(conversation) {
-  const firstUserMessage = conversation.messages.find((message) => message.role === 'user')
-  const content = firstUserMessage?.content.trim()
-  if (!content) {
-    return `Conversation ${conversation.id}`
-  }
-  return content.length > 64 ? `${content.slice(0, 61)}…` : content
-}
-
 async function loadHistory() {
   const user = accountSession.user.value
   if (!user) {
@@ -54,17 +42,8 @@ async function loadHistory() {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const [sessionData, conversationData] = await Promise.all([
-      sessionsApi.list(user.id),
-      chatApi.listConversations(user.id),
-    ])
+    const sessionData = await sessionsApi.list(user.id)
     exerciseSessions.value = sessionData.sessions
-    conversations.value = await Promise.all(
-      conversationData.conversations.map(async (conversation) => {
-        const messageData = await chatApi.listMessages(conversation.id)
-        return { ...conversation, messages: messageData.messages }
-      }),
-    )
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -88,7 +67,7 @@ watch(
     <header>
       <p class="eyebrow">Saved prototype activity</p>
       <h1>History</h1>
-      <p>Review measured exercises and fictional conversations stored for your account.</p>
+      <p>Review measured exercises stored for your account.</p>
     </header>
 
     <p v-if="isLoading" aria-live="polite">Loading saved activity…</p>
@@ -114,49 +93,6 @@ watch(
         </ol>
       </section>
 
-      <section aria-labelledby="conversation-heading">
-        <div class="section-heading">
-          <div>
-            <h2 id="conversation-heading">Past conversations</h2>
-            <p>Messages save automatically and can be reopened to continue the same chat.</p>
-          </div>
-          <RouterLink class="button-link" :to="{ name: 'chat', query: { new: '1' } }">
-            New conversation
-          </RouterLink>
-        </div>
-        <p v-if="conversations.length === 0">No saved conversations yet.</p>
-        <ol v-else class="conversation-list">
-          <li v-for="conversation in conversations" :key="conversation.id">
-            <details class="conversation-card">
-              <summary>
-                {{ conversationTitle(conversation) }}
-              </summary>
-              <div class="conversation-meta">
-                <small>
-                  Updated {{ formatDate(conversation.updated_at) }} ·
-                  {{ conversation.messages.length }} messages
-                </small>
-                <RouterLink
-                  class="button-link button-link-small"
-                  :to="{
-                    name: 'chat',
-                    query: { conversation: String(conversation.id) },
-                  }"
-                >
-                  Open conversation
-                </RouterLink>
-              </div>
-              <div class="conversation-messages">
-                <ChatMessage
-                  v-for="message in conversation.messages"
-                  :key="message.id"
-                  :message="message"
-                />
-              </div>
-            </details>
-          </li>
-        </ol>
-      </section>
     </template>
   </main>
 </template>
@@ -172,9 +108,7 @@ watch(
 
 header,
 section,
-.history-list,
-.conversation-list,
-.conversation-messages {
+.history-list {
   display: grid;
   gap: 0.75rem;
 }
@@ -199,14 +133,12 @@ strong {
   text-transform: uppercase;
 }
 
-.history-list,
-.conversation-list {
+.history-list {
   padding: 0;
   list-style: none;
 }
 
-.history-card,
-.conversation-card {
+.history-card {
   padding: 1rem;
   border: 1px solid var(--color-border);
   border-radius: 1rem;
@@ -218,44 +150,6 @@ strong {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.section-heading,
-.conversation-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.button-link {
-  display: inline-flex;
-  min-height: 2.75rem;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  padding: 0.55rem 1rem;
-  border: 2px solid var(--color-primary);
-  border-radius: 999px;
-  color: var(--color-on-primary);
-  background: var(--color-primary);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.button-link-small {
-  min-height: 2.25rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.85rem;
-}
-
-summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.conversation-messages {
-  margin-top: 1rem;
 }
 
 .error-card {
@@ -284,8 +178,6 @@ button {
 
 @media (max-width: 34rem) {
   .history-card > div,
-  .section-heading,
-  .conversation-meta,
   .error-card {
     align-items: stretch;
     flex-direction: column;

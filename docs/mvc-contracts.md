@@ -2,7 +2,7 @@
 
 ## Scope and source
 
-No CSV files are present in the repository. The initial model is therefore derived from the requested `users`, `login`, and `chat_logs` tables plus the `conversations` and `exercise_sessions` records required for chat grouping, measured exercise duration, completion, and early exit. Any future CSV import must be analyzed and mapped explicitly before changing these fields or relationships.
+No CSV files are present in the repository. The model is derived from the requested `users`, `login`, and `chat_logs` tables plus `conversations`, `exercise_sessions`, and `check_ins` for chat grouping, measured exercise outcomes, and dated emotional check-ins. Any future CSV import must be analyzed and mapped explicitly before changing these fields or relationships.
 
 ## MVC ownership
 
@@ -128,7 +128,7 @@ The response may report readiness but must not expose keys, prompts, paths, or p
 
 `GET /api/accounts/{user_id}` returns the public account. `PATCH /api/accounts/{user_id}` accepts one or more of `username`, `first_name`, `last_name`, and `password`. `DELETE /api/accounts/{user_id}` deletes the user; existing foreign-key cascades delete its login, conversations, chat logs, and exercise sessions.
 
-Public account responses contain `id`, `username`, `first_name`, `last_name`, `preferences`, `created_at`, and `updated_at`. They never contain a password or password hash. This local coursework flow persists an active user identifier in the browser but does not provide server-issued endpoint authorization.
+Public account responses contain `id`, `username`, `first_name`, `last_name`, `preferences`, `created_at`, and `updated_at`. They never contain a password or password hash. Deleting an account cascades through its login, conversations, chat logs, exercise sessions, and check-ins. This local coursework flow persists an active user identifier in the browser but does not provide server-issued endpoint authorization.
 
 ### User CRUD
 
@@ -273,7 +273,7 @@ The chat service accepts at most 2,000 characters per user message, retains at m
 
 `GET /api/conversations/{conversation_id}/messages` returns public message objects ordered by increasing identifier.
 
-The History View combines these existing read endpoints to present past text conversations. It derives a display preview from the first saved user message without adding a title column. **Open conversation** routes to `/chat?conversation={id}`; before loading messages, Chat confirms that the requested identifier is present in the active account's conversation summaries. `/chat?new=1` clears the current View selection and uses `conversation_id: null` for the next message, causing the existing chat controller to create a new persistent conversation. After creation, Chat replaces the route query with the returned conversation identifier. Messages save immediately through the chat endpoint; there is no separate unsaved draft record or Save endpoint. Live audio and transient voice captions remain excluded.
+Chat's Past conversations dropdown combines these existing read endpoints when opened. It sits beside New conversation and includes expandable message previews, timestamps, message counts, and an Open conversation action. It derives a display preview from the first saved user message without adding a title column. History now requests exercise sessions only. **Open conversation** routes to `/chat?conversation={id}`; before loading messages, Chat confirms that the requested identifier is present in the active account's conversation summaries. `/chat?new=1` clears the current View selection and uses `conversation_id: null` for the next message, causing the existing chat controller to create a new persistent conversation. After creation, Chat replaces the route query with the returned conversation identifier. Messages save immediately through the chat endpoint; there is no separate unsaved draft record or Save endpoint. Live audio and transient voice captions remain excluded.
 
 ### Voice configuration and session exchange
 
@@ -318,7 +318,7 @@ Mute changes only local audio-track enablement; it does not stop assistant playb
 
 - `validation_error` — invalid or missing View input;
 - `invalid_credentials` — the supplied username/password pair was not verified;
-- `not_found` — unknown user, conversation, message, or exercise session;
+- `not_found` — unknown user, conversation, message, exercise session, or check-in;
 - `conflict` — uniqueness or illegal state-transition conflict;
 - `model_unavailable` — model mode is not configured or provider call failed;
 - `model_timeout` — provider deadline elapsed;
@@ -330,6 +330,6 @@ HTTP status codes and JSON error codes must be mapped in the API controller and 
 
 ## View request implementation
 
-`frontend/src/api/client.js` is the only general HTTP adapter. It validates the shared `data`/`error` envelope, converts controller errors to `ApiError`, and maps failed transport or non-JSON responses to stable View-safe errors. `accounts.js`, `users.js`, `sessions.js`, `chat.js`, and `voice.js` map screen actions to the endpoint-specific fields above. During local Vite development, `/api` is proxied to `http://127.0.0.1:8000`; a deployment may instead provide `VITE_API_BASE_URL`.
+`frontend/src/api/client.js` is the only general HTTP adapter. It validates the shared `data`/`error` envelope, converts controller errors to `ApiError`, and maps failed transport or non-JSON responses to stable View-safe errors. `accounts.js`, `users.js`, `sessions.js`, `checkIns.js`, `chat.js`, and `voice.js` map screen actions to the endpoint-specific fields above. During local Vite development, `/api` is proxied to `http://127.0.0.1:8000`; a deployment may instead provide `VITE_API_BASE_URL`.
 
-The View stores only the signed-in user's integer identifier in browser local storage. It resolves the complete public account through `GET /api/accounts/{id}`, clears a stale identifier after `not_found`, and never stores credentials. Exercise persistence converts the View's camel-case result object into the controller's snake-case payload. Chat and history consume only public serialized messages and sessions. While signed out, the router-level View gate prevents grounding, chat, voice, and history screens from mounting; breathing and `/support` remain independent and available.
+The View stores only the signed-in user's integer identifier in browser local storage. It resolves the complete public account through `GET /api/accounts/{id}`, clears a stale identifier after `not_found`, and never stores credentials. Exercise persistence converts the View's camel-case result object into the controller's snake-case payload. Calendar, chat, and history consume only public serialized records. While signed out, the router-level View gate prevents grounding, chat, voice, calendar, and history screens from mounting; breathing and `/support` remain independent and available.

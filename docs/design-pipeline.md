@@ -4,7 +4,7 @@
 
 This document keeps project structure, request boundaries, and development checkpoints visible without duplicating the detailed internal requirements. Use it with `AGENTS.md`, `README.md`, and `docs/assignment_instructions.md` when planning or reviewing work.
 
-Cornerstone currently has a verified backend environment, five SQLite-backed entities with database-controller CRUD, a validated FastAPI boundary for users, exercises, persisted text chat, history, and voice-session SDP exchange, plus server-configured OpenAI text and Live adapters. Production text chat has no synthetic-response mode: incomplete configuration follows the recoverable unavailable path, while automated tests inject focused provider doubles. The six-route Vue View includes browser-timed skills and an optional microphone-started WebRTC controller on Chat. Browser/SQLite evidence covers the deterministic skills, historical mock-chat slices, restart persistence, request failure, and independent support route. Current OpenAI text requests and Live audio are verified only through fake/mock boundaries and have not been exercised against the paid provider.
+Cornerstone currently has a verified backend environment, six SQLite-backed entities with database-controller CRUD, a validated FastAPI boundary for accounts, exercises, calendar check-ins, persisted text chat, history, and voice-session SDP exchange, plus server-configured OpenAI text and Live adapters. Production text chat has no synthetic-response mode: incomplete configuration follows the recoverable unavailable path, while automated tests inject focused provider doubles. The seven-route Vue View includes browser-timed skills, a multi-entry check-in calendar, and an optional microphone-started WebRTC controller on Chat. Browser/SQLite evidence covers the deterministic skills, historical mock-chat slices, restart persistence, request failure, and independent support route. Calendar persistence and exercise-ambience lifecycle have automated coverage. Text requests have fake-client coverage plus a bounded seven-reply live comparison within eight approved attempts; Live audio remains mock-verified only.
 
 ## Documentation order
 
@@ -30,7 +30,7 @@ cornerstone-app/
 |   +-- .venv/                        [current, ignored] project Python environment
 |   +-- models/                       [current] entity objects and relationships
 |   |   +-- data/                     [current] ignored local SQLite data
-|   |   `-- entities.py               [current] five Phase 1 model entities
+|   |   `-- entities.py               [current] six Phase 1 model entities
 |   +-- controllers/                  [current] database and business controllers
 |   |   +-- database_controller.py    [current] migration-safe SQLite CRUD
 |   |   +-- api/                      [current] validated FastAPI JSON boundary
@@ -41,14 +41,14 @@ cornerstone-app/
 |   +-- package.json                  [current] Vue, Vue Router, and scripts
 |   +-- package-lock.json             [current] locked JavaScript dependency graph
 |   +-- src/                          [current] View source, components, CSS, and assets
-|   |   +-- pages/                    [current] six routed Phase 1 screens
+|   |   +-- pages/                    [current] seven routed Phase 1 screens
 |   |   +-- utils/                    [current] deterministic skill calculations
 |   |   +-- api/                      [current] documented fetch request modules
 |   |   +-- session/                  [current] account and exercise persistence
 |   |   +-- voice/                    [current] framework-free WebRTC lifecycle controller
-|   |   `-- router/                   [current] six-route Vue Router mapping
+|   |   `-- router/                   [current] seven-route Vue Router mapping
 |   +-- tests/                        [current] Node calculation/request unit tests
-|   +-- public/                       [current] View static assets
+|   +-- public/                       [current] View static assets and CC0 ambience
 |   +-- index.html                    [current] View HTML entry point
 |   +-- vite.config.js                [current] View build configuration
 |   +-- node_modules/                 [current, ignored] installed dependencies
@@ -61,7 +61,8 @@ cornerstone-app/
 |   +-- phase-1-contract.md           [current] reviewed first-phase behavior
 |   +-- verification.md               [current] scaffold verification record
 |   `-- images/
-|       `-- initial basic wireframe.png [current] exploratory interface sketch
+|       +-- initial basic wireframe.png [current] exploratory interface sketch
+|       `-- calendar wireframe.png      [current] calendar reference sketch
 +-- prompts/                          [current] curated major project prompts
 +-- handoffs/
 |   +-- create-handoff.md             [current] handoff creation/resume prompts
@@ -71,7 +72,7 @@ cornerstone-app/
 
 The MVC dependency direction is `frontend/ (View) -> backend/controllers/ -> backend/models/`. Models own data, entities, and relationships. Controllers own the FastAPI boundary, database CRUD, application orchestration, and calculations that connect model results to documented JSON responses. The entire frontend is the View and owns screen-level presentation, components, and CSS. Routes should not contain calculations, View files should not perform persistence work, and model/provider details should remain behind controller contracts.
 
-The initial wireframe shows a landing view with a breathing control plus guided-experience and chat entry points. Phase 1 now defines the home control as hold-to-breathe and gives sensory grounding its own prominent route above chat. History lists persisted text conversations and routes a selected conversation back into Chat, while New conversation creates a separate record on first send. The wireframe remains exploratory and still needs revision to show this persistent-history selection, exit behavior, failure states, and the always-available support-information route. `docs/phase-1-contract.md` is authoritative for current behavior.
+The initial wireframe shows a landing view with a breathing control plus guided-experience and chat entry points. Phase 1 now defines the home control as hold-to-breathe with an exercise-only wind-chime ambience and gives sensory grounding its own prominent route above chat. The calendar wireframe informed the implemented month grid and selected-day form; the current View extends it with month/year selectors, multiple events per day, custom emotion labels/colors, and past-date editing. History lists persisted text conversations and routes a selected conversation back into Chat, while New conversation creates a separate record on first send. The wireframes remain references rather than authoritative runtime specifications; `docs/phase-1-contract.md` and `docs/mvc-contracts.md` define current behavior.
 
 ## Request flow
 
@@ -131,13 +132,15 @@ The voice path is View → FastAPI session controller → OpenAI Live. The View 
 
 ## Remaining vertical-slice acceptance evidence
 
+The November 2–3 submission pass completed the fifteen automated fictional scenarios, three behavior checks, approved repeated live text comparison, test-only mocked peer setup, and sourced U.S./Pennsylvania support content. Earlier checkpoint descriptions retain historical limits. Current remaining items are final timing/media evidence, an independent person's clean-checkout confirmation, physical-phone/accessibility review, and live voice verification. See `docs/evaluation.md`, `docs/support-sources.md`, and the latest verification entry.
+
 Steps 11–12 established the chosen skills, chat success/failure, restart persistence, and independent support route across Vue, FastAPI, deterministic controller logic, and SQLite. Remaining evidence should extend rather than duplicate it:
 
 - replace placeholder crisis-support copy only with approved jurisdiction-specific content;
 - evaluate at least fifteen fictional scenarios and three explicit behavior checks;
 - repeat a small approved selection with live OpenAI only after the key, model, paid-call limit, and reference material are available;
 - perform a deliberately approved microphone/WebRTC walkthrough covering permission, playback, mute, close, failure recovery, and the absence of audio/transcript persistence;
+- pair a final calendar browser walkthrough with read-only SQLite evidence for multiple same-day entries, editing, custom colors, and legacy-row preservation;
 - browser observations are paired with database queries and repeatable automated checks, and the verification record states unfinished or untested behavior plainly.
 
 The observed and remaining evidence is detailed in `docs/design_notes.md` and `docs/verification.md`. The JSON contract and exact schema are recorded in `docs/mvc-contracts.md`.
-

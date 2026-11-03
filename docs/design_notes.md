@@ -8,7 +8,9 @@ These are exploratory product and interaction notes, not finalized requirements 
 
 ![Initial basic Cornerstone wireframe](images/initial%20basic%20wireframe.png)
 
-The initial wireframe explores a minimal landing view with entry points for a guided experience and chat, leading into a larger exercise or conversation view. It is an early sketch rather than an approved interface. It does not yet show the independently available support-information route, persistent history, clear exit controls, personalization controls, or failure states; those must be resolved before implementation.
+![Cornerstone calendar wireframe](images/calendar%20wireframe.png)
+
+The initial wireframe explores a minimal landing view with entry points for a guided experience and chat. The calendar wireframe adds the check-in month grid and selected-day form. Both are reference sketches rather than complete runtime specifications. The implemented View adds the independent support route, persistent history, account states, calendar month/year selectors, multiple same-day entries, custom feelings/colors, past-date editing, and explicit loading/error/future-date states.
 
 ## Phase 1 scope
 
@@ -20,7 +22,7 @@ The reviewed Phase 1 direction is defined in `docs/phase-1-contract.md`. It expa
 
 Six uninterrupted breathing cycles remain the planned 60-second completion point. Releasing earlier records an exit, stops the visual cue immediately, and prominently offers grounding. The browser measures active time; server timestamps and SQLite records support later evidence. Deterministic application code—not the model—owns exercise order, timing, exits, persistence, failures, and support access.
 
-The complete route set also includes saved history, explicit local registration/sign-in, and independent static crisis-support information. Signed-out users retain breathing and support access; other activities require an account. The exact page behavior, provider boundary, failure states, and review decisions are in `docs/phase-1-contract.md`; endpoint payloads are in `docs/mvc-contracts.md`.
+The complete route set also includes the check-in calendar, saved history, explicit local registration/sign-in, and independent static crisis-support information. Signed-out users retain breathing and support access; other activities require an account. The exact page behavior, provider boundary, failure states, and review decisions are in `docs/phase-1-contract.md`; endpoint payloads are in `docs/mvc-contracts.md`.
 
 ### Planned SQLite evidence
 
@@ -29,6 +31,7 @@ The minimum persisted records are:
 - a conversation row linked to the user with creation/update time;
 - user and assistant message rows linked to the conversation, with role, content, creation time, and delivery status such as `delivered`, `fallback`, or `failed`;
 - an exercise-session row linked to the user, with skill name, `completed` or `exited` status, planned duration, start/end timestamps, measured active duration, and last cycle/phase or grounding step;
+- one or more check-in rows linked to the user and an ISO local date, with feeling, accessible marker color, description, and creation time;
 - enough request-status information to distinguish a successful model contribution from a deterministic fallback without storing credentials or hidden provider data.
 
 The exact schema and Vue-to-FastAPI JSON contract must be documented before implementation. Persistence should be inspectable with SQLite queries while the application is stopped and restarted, demonstrating that both conversation and session history survive a process restart.
@@ -82,7 +85,17 @@ Conversation persistence did not require a schema migration. `conversations` alr
 
 Persisted text chat now imports its code-versioned developer instruction from `backend/controllers/services/chat_prompt.py`. The supplied prompt is retained verbatim and sent through the Responses API `instructions` field on every request. It adds explicit client-centered tone, self-report and inference boundaries, one-question/low-cognitive-load response shape, BPD-sensitive communication only when that context is supplied, rupture repair, application-capability limits, a bounded safety pathway, professional/privacy limits, and cultural humility. It continues to identify Cornerstone as a fictional coursework prototype, prohibits therapy/diagnosis/monitoring claims, forbids invented resources and application actions, and leaves exercise workflow to deterministic application code. The voice layer retains separate prompts because its delivery and delegation contract is independently bounded.
 
+### Step 23 check-in calendar and exercise ambience
+
+The calendar is a signed-in View route with a month grid above the selected-day panel for a phone-friendly reading order. Users can move one month at a time or select a month and year directly. Present and past dates accept multiple independently editable entries; future dates are read-only. Happy, sad, stressed, and scared use stable preset colors. Something else expands to collect a custom feeling label and color. Up to three stored colors appear on a date while the selected-day panel lists every entry with text labels, so meaning does not depend on color alone.
+
+SQLite stores each event in `check_ins` with its user, feeling, validated hex color, description, ISO local date, and creation time. Migration removes the former one-entry-per-day uniqueness rule without discarding existing rows and adds a neutral color to older rows that predate the color field. Vue communicates through `checkIns.js` and the documented JSON envelope; it never accesses SQLite directly.
+
+The breathing exercise retains its deterministic four-second inhale/six-second exhale visual timing and 60-second completion contract. Phase-specific breathing recordings were removed. A 76-second CC0 recording of deeper wind chimes driven by natural breeze now starts only when the activity starts, loops only if necessary, and stops/rewinds on release, completion, visibility loss, or navigation. The browser does not alter its playback rate or pitch.
+
 ## Product direction
+
+The November 2–3 submission pass added fifteen fictional automated scenarios, three explicit behavior checks, seven completed live text replies within eight approved attempts, a mocked peer fixture, and U.S./Pennsylvania support content. Earlier dated sections below retain the evidence limits that applied at each implementation step. Current evidence and remaining work are in `report.md`, `docs/evaluation.md`, and `docs/verification.md`.
 
 - Consider a mental-health skills application centered on processing and reflection.
 - The user should be able to get what they need quickly, whether that is a breathing exercise, a way to explain a situation, or a conversation with a language model about what they are feeling.

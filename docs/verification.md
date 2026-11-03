@@ -1,6 +1,6 @@
-# Cornerstone Scaffold Verification
+# Cornerstone Verification Log
 
-Last verified: 2026-10-26
+Last verified: 2026-11-02
 
 ## Scope
 
@@ -640,3 +640,119 @@ Observed results:
 - The ignored environment has nonempty `OPEN_AI_API_KEY`, `VOICE_BACKEND_MODEL`, and `VOICE_MAX_SESSION_SECONDS` entries. No value was printed or changed. Starting Uvicorn with that environment can make paid OpenAI calls.
 - Git was on `main` at `5921804d3a92fe3be2f4f9cbbe96005eec2ecfe7`, tracking `origin/main`. The only working-tree change before this handoff documentation was `report.md`.
 - No browser walkthrough, OpenAI network request, microphone access, audio playback, paid usage, or database write was performed by this audit.
+
+## 2026-11-02 current-state documentation audit
+
+This audit checked the merged calendar, account, and breathing-ambience implementation before updating the living project documentation. Earlier sections remain as historical implementation evidence and may describe smaller route, entity, and test counts that were accurate at the time.
+
+Commands run:
+
+```powershell
+git status --short --branch
+git log -1 --oneline --decorate
+& 'backend\.venv\Scripts\python.exe' -m pytest backend\tests
+npm --prefix frontend run test:unit
+npm --prefix frontend run lint
+npm --prefix frontend run build
+git diff --check
+```
+
+The running development server's committed ambience asset was also checked with an HTTP `HEAD` request to `http://127.0.0.1:5173/audio/gentle-wind-chimes.mp3`.
+
+Observed results:
+
+- Git was on `main` at `f1f4b64` (`Enhance calendar check-ins and exercise ambience`) and matched the local `origin/main` tracking reference before this documentation-only update.
+- The backend suite completed with `47` passing tests and no failures. Pytest emitted one cache warning because the managed Windows environment denied access to the repository-root `.pytest_cache`; this did not affect collection or test execution.
+- The frontend suite completed with `64` passing tests and no failures.
+- Frontend lint completed successfully.
+- Vite 8.3.4 completed a production build with `69` modules transformed.
+- `git diff --check` reported no whitespace errors after the documentation edits.
+- The development server returned HTTP `200` with `audio/mpeg` for the `1,721,029`-byte wind-chime asset.
+- The automated coverage includes the check-in schema migration, multiple check-ins per day, create/update API behavior, calendar request mapping, marker grouping, month/year navigation helpers, and breathing-audio lifecycle behavior.
+- Source inspection confirmed the current seven-route View, six model entities, calendar-above-form layout, editable past/today check-ins, read-only future dates, custom feeling colors, and natural-speed wind-chime ambience that runs only while the breathing exercise is active.
+
+Not verified by this audit:
+
+- No paid OpenAI request, microphone access, or live WebRTC session was performed.
+- No new browser walkthrough or read-only SQLite evidence capture was performed for the calendar workflow.
+- Audio quality, responsive behavior on physical phones, and systematic accessibility were not subjectively reviewed.
+- `report.md` was deliberately excluded from this documentation update at the user's request.
+
+## 2026-11-02–03 submission completion and isolated setup check
+
+The user authorized completion of the non-media submission material, eight paid text attempts, and U.S./Pennsylvania support content. Only fictional inputs were used. The user confirmed Codex-only development AI use and reuse of setup prompts, with no other coursework application code reused.
+
+Changes:
+
+- `report.md`: current-state corrections, fifteen fictional expected/observed scenarios, three behavior checks, initial-design comparison, model variation, code explanation, honest limits, and media/person-dependent brackets.
+- `AI-USE.md`, `docs/evidence-log.md`, `docs/evaluation.md`, `docs/support-sources.md`, and `docs/live-model-results.json`: disclosure, redacted prompt/change/check/decision evidence, evaluation procedure, source review, and actual live replies.
+- `backend/tests/peer_server.py`, `backend/tests/test_peer_server.py`, and `backend/tests/run_live_evaluation.py`: isolated mocked peer fixture, repeatable controller checks, and explicitly opt-in capped live comparison. Production provider selection is unchanged.
+- `.env.example`, `README.md`, current contract/design/page notes, and the handoff: corrected outdated mock guidance and aligned current status.
+- `frontend/src/pages/CrisisSupportPage.vue`: static, independently available U.S./Pennsylvania support information, source links, and prototype limits. No external service was contacted.
+
+Commands and observations:
+
+```powershell
+& 'backend/.venv/Scripts/python.exe' -m pytest backend/tests -q -p no:cacheprovider --basetemp backend/.pytest_cache/controller-final
+npm --prefix frontend run test:unit
+npm --prefix frontend run build
+# Inside frontend, non-fixing checks:
+& './node_modules/.bin/oxlint.cmd' .
+& './node_modules/.bin/eslint.cmd' . --no-cache
+# Explicitly approved, capped run from the root:
+& 'backend/.venv/Scripts/python.exe' -m backend.tests.run_live_evaluation --approve-eight-paid-calls
+```
+
+- The original local environment passed 48 backend tests, 64 frontend tests, lint, and the 69-module production build. The added peer test checks fixed reply delivery, unavailable/timeout response codes, separate fallback records, disabled voice despite environment configuration, and persistence after application reconstruction.
+- The first peer-fixture assertion incorrectly expected a boolean `configured` field. The actual endpoint returns `status: unconfigured`; the corrected check passed. During the later managed-runtime session, an HTTP-client repeat stalled while Python's Windows event loop was creating its internal socket pair. A diagnostic stack identified that boundary. The final routine peer check uses the same direct controller style as the existing suite and does not claim a new end-to-end HTTP walkthrough.
+- The approved live run counted eight attempts, including an initial `APIConnectionError` before network access was granted. Seven replies completed with returned model `gpt-5.6-sol`; decline, correction, and immediate-danger cases each have two completed outputs. No automatic retry or ninth attempt was made. The eight-attempt JSON record is retained. Text latency among successful calls ranged from 1.189 to 4.007 seconds. No live voice session was used.
+- The provider comparison used the production text instruction and the same 256-token, 15-second, no-retry, `store=False` request bounds. It was a direct provider comparison, not a browser-to-SQLite live walkthrough. Full fictional outputs are retained separately from routine mock results.
+
+Isolated installation:
+
+A new ignored `backend/.pytest_cache/submission-clean-source` directory was populated from the tracked working source plus the new peer fixture. It contained no copied virtual environment, `node_modules`, private `.env`, or runtime database. This was an isolated source copy, not an independent person's checkout or a newly submitted commit.
+
+From that directory, the following setup/check commands were used:
+
+```powershell
+# A new environment was created using the existing project Python executable.
+& 'backend/.venv/Scripts/python.exe' -m pip install -r backend/requirements.txt
+npm --prefix frontend ci --no-audit --no-fund
+New-Item -ItemType Directory -Force -Path backend/.pytest_cache | Out-Null
+& 'backend/.venv/Scripts/python.exe' -m pytest backend/tests -q -p no:cacheprovider --basetemp backend/.pytest_cache/clean-controller-final
+& 'backend/.venv/Scripts/python.exe' -m pip check
+npm --prefix frontend run test:unit
+npm --prefix frontend run build
+```
+
+- System: Windows 11, Python 3.12.14, Node 25.7.0, npm 11.10.1.
+- Python installation completed in the isolated virtual environment. Since requirements are unpinned, it resolved FastAPI 0.162.0, OpenAI 3.42.1, and pytest 9.2.0, distinct from the original environment. No project dependency declaration, original installed dependency, or machine-level runtime was upgraded.
+- Frontend installation completed with 224 packages from the lockfile. The isolated 64 frontend tests and production build passed. Node 25 generated engine warnings from several locked tooling packages; the README now gives the compatible Node version lines rather than claiming a warning-free install.
+- The first isolated pytest run found that the explicit `--basetemp` parent did not exist. The README now creates `backend/.pytest_cache` before the command. This was a setup-command issue rather than an application assertion failure.
+- Restricted network/cache access initially blocked downloads; the approved retry completed the local installations. The host runtime interruption also required resuming the Python installation. Neither failure was recorded as a successful clean install.
+- A local browser check of the exported frontend with the mocked peer backend reached Home and created a fictional account. The peer backend used its own ignored database. This does not establish a completed current-version exercise/calendar browser walkthrough. No new screenshot or video was captured.
+
+Unverified or person-dependent:
+
+- Another person still needs to follow the updated README from a clean checkout. The isolated install is supporting evidence, not a claim that this independent check occurred.
+- Final exercise entry/setup timings and the intended-pace grounding measurement still need to be captured with the demonstration. The 55-second grounding estimate is an explicit pacing assumption, not a measured typical-user result.
+- Final screenshots, application demonstration, process screencast, public/reviewer access checks, and submitted commit identification remain outstanding.
+- Live microphone/voice, physical-phone review, systematic accessibility, ambiguous/figurative crisis-language variation, and clinical effectiveness are not established.
+
+Final isolated result: after creating the cache parent and using the final controller-style peer test, all 48 backend tests passed in 9.47 seconds and `pip check` reported no broken requirements. The earlier isolated 64 frontend tests and build also passed. No successful full clean-source HTTP-server startup or final exercise timing run is claimed; the managed Windows socket initialization stalled during later server/client attempts.
+
+## 2026-11-03 conversation dropdown relocation
+
+- Moved the entire past-conversation list from History into `PastConversations.vue`, rendered beside New conversation in Chat. The dropdown retains the saved title, expandable messages, timestamp, message count, and Open conversation action. It loads on opening and exposes loading, empty, and retry states.
+- Opening another saved conversation uses the existing account-checked route selection, clears transient voice/draft state, and closes the dropdown. Selection, New conversation, and text sending are disabled while a conversation load/send is pending.
+- History now requests exercise sessions only; chat-history failures cannot block its exercise list.
+- Updated the current README, report, phase contract, and MVC conversation-history description to match.
+- Ran `npm --prefix frontend run test:unit` (64 passed), non-fixing `oxlint .` and `eslint . --no-cache` from frontend (passed), and `npm --prefix frontend run build` (71 modules, passed). No dependency or backend change was needed.
+- Browser verification confirmed the exercise-only History page, the adjacent Chat controls, both saved conversation previews, expansion of the older conversation's eight messages, and successful reopening as Conversation 7. No message was sent and no model request was made.
+
+## 2026-11-03 support page styling
+
+- Restyled `frontend/src/pages/CrisisSupportPage.vue` using the existing app color variables, standard page width/header sizing, rounded cards, subtle shadows, and pill-shaped contact actions. The emergency card uses the existing muted danger colors; the Lifeline card uses the green palette. Buttons stack on narrow screens and have visible keyboard focus.
+- Preserved all existing contact destinations, source links, resource details, and the independent static route. No backend, account, model, or dependency change was made.
+- Ran non-fixing Oxc/ESLint checks from `frontend` and `npm run build`; both passed. `git diff --check` found no whitespace errors.
+- Live browser visual verification was unavailable because the browser connector returned `browser.user is unavailable`; no call, text, external chat, or paid model request was made. Mobile behavior is implemented in CSS but not claimed as a new physical-device check.

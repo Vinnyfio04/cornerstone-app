@@ -1,6 +1,57 @@
 # Cornerstone Current Handoff
 
-Verified and updated on 2026-10-27 from `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
+## November 3 submission update
+
+The user subsequently authorized report completion and up to eight paid text attempts. `report.md` is now intentionally edited. Seven `gpt-5.6-sol` replies completed and one attempt failed to connect; the eight-attempt record in `docs/live-model-results.json` is exhausted and must not be reset or rerun for more paid calls without authorization. The user confirmed Codex-only development AI use, reuse of setup prompts but no other coursework code, and U.S./Pennsylvania support scope. The support View now has sourced static content. `AI-USE.md`, `docs/evidence-log.md`, `docs/evaluation.md`, and `docs/support-sources.md` record the added evidence. The test-only peer fixture uses its own ignored database and disables live voice. Earlier instructions below excluding `report.md` are historical and superseded by the latest user request. See the latest `docs/verification.md` entry for installation results and remaining limits.
+
+Verified and updated on 2026-11-02 from `C:\Users\Owner\Desktop\School Work\5 Fall 2026\IST 402 - Vibe Coding\cornerstone-app`.
+
+## Resume first
+
+Read `AGENTS.md`, `README.md`, `docs/design-pipeline.md`, `docs/design_notes.md`, `docs/verification.md`, `docs/phase-1-contract.md`, `docs/mvc-contracts.md`, and this handoff. Recheck Git status and the latest user request before editing. Treat this file as a navigation aid rather than authority.
+
+The user explicitly excluded `report.md` from the 2026-11-02 documentation refresh. Do not change it as part of that work.
+
+## Current project state
+
+- The Vue View has seven routes: Home, Grounding, Chat, Check-in, History, Account, and Support.
+- Home has a deterministic 4-second inhale/6-second exhale exercise. The natural-speed `gentle-wind-chimes.mp3` ambience starts and loops only while the activity is active, then stops and rewinds on release, completion, interruption, navigation, or unmount.
+- Check-in presents the calendar above the entry panel. Users can add multiple entries to today or a past date, edit an existing entry, select a standard feeling or enter a custom feeling and color, and see up to three colored markers on a saved date. Future dates are read-only. Month and year selectors support direct navigation.
+- SQLite has six model entities: `User`, `Login`, `Conversation`, `ChatLog`, `ExerciseSession`, and `CheckIn`. The check-in migration preserves legacy rows while removing the old one-entry-per-day restriction.
+- FastAPI owns user, exercise, conversation/chat, voice-session, and check-in JSON boundaries. The Vue View does not access SQLite or import backend Python.
+- Account state remains a local fictional prototype rather than server-token authentication.
+- Typed chat persistence, optimistic display, saved-conversation reopening, OpenAI-only production text chat, optional Live voice, and the independent Support route remain as documented in the phase contract and MVC contracts.
+
+## Current verification baseline
+
+At the start of the documentation refresh, Git was on `main` at `f1f4b64` (`Enhance calendar check-ins and exercise ambience`) and matched the local `origin/main` tracking reference.
+
+- Backend: `47` tests passed; one non-failing pytest cache warning was emitted because the managed environment denied root cache access.
+- Frontend: `64` tests passed.
+- Frontend lint: passed.
+- Production build: passed with Vite 8.3.4 and `69` transformed modules.
+- The running development server returned HTTP `200`, `audio/mpeg`, and `1,721,029` bytes for the committed ambience file.
+- No paid provider request, microphone access, database write, dependency change, or application-source change was made by the documentation audit.
+
+## Remaining work and limitations
+
+- Capture final browser and matching read-only SQLite evidence for the calendar create/edit/multiple-entry workflow if submission evidence requires it.
+- Complete a systematic accessibility and physical-phone responsive review.
+- Replace placeholder jurisdiction-specific support content only after approved resources are supplied.
+- Perform the fifteen-scenario fictional language/safety evaluation before making a model-quality claim.
+- Live OpenAI text and voice behavior, billing, latency, microphone handling, and remote playback still require explicit approval and a deliberately controlled test.
+- `backend/models/data/intents.json` remains excluded from model input pending provenance and suitability review.
+- Active server-backed authentication is not implemented and should not be implied by the local account gate.
+
+## Recommended next step
+
+Review the documentation diff, confirm `report.md` has no changes, and commit/push the documentation only if requested. For final evidence, start fresh local servers and pair calendar browser screenshots with read-only SQLite inspection rather than relying on historical screenshots.
+
+---
+
+# Archived handoff — 2026-10-27
+
+The remainder of this file is the prior handoff snapshot. Its six-route, five-entity, authentication, test-count, Git-hash, and next-step statements are historical and are superseded by the current section above.
 
 ## Resume first
 

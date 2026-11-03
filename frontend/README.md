@@ -1,44 +1,47 @@
-# frontend
+# Cornerstone frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+This directory is the complete MVC View for Cornerstone. It is a Vue 3 and
+Vite application with seven routes: Home, Grounding, Chat, Check-in Calendar,
+History, Account, and independent Crisis Support. The View communicates with
+FastAPI only through the request modules in `src/api/`; it never imports
+backend Python or accesses SQLite directly.
 
-## Recommended IDE Setup
+The Home page owns the browser-timed 4-second inhale/6-second exhale exercise.
+A CC0 wind-and-chime ambience starts with the exercise and stops when the
+exercise stops. Grounding owns the deterministic 5-4-3-2-1 flow. Calendar
+supports multiple check-ins per present or past date, editable saved entries,
+preset and custom feelings/colors, and up to three date markers. Chat supports
+persisted text conversations and optional transient Live voice sessions.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Setup
 
-## Recommended Browser Setup
+From the repository root, install the locked project-local dependencies:
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
+```powershell
+npm --prefix frontend ci
 ```
 
-### Compile and Hot-Reload for Development
+No frontend dependency should be installed globally.
 
-```sh
-npm run dev
+## Development and verification
+
+Run the development server from the repository root:
+
+```powershell
+npm --prefix frontend run dev
 ```
 
-### Compile and Minify for Production
+Vite serves the View at `http://127.0.0.1:5173` by default and proxies relative
+`/api` requests to the local FastAPI server. A deployment may set
+`VITE_API_BASE_URL`.
 
-```sh
-npm run build
+Run the repeatable frontend checks with:
+
+```powershell
+npm --prefix frontend run test:unit
+npm --prefix frontend run lint
+npm --prefix frontend run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+See `../README.md` for complete project setup and `../docs/mvc-contracts.md` for
+the View-to-controller JSON contract.

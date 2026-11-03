@@ -1,8 +1,11 @@
 # Frontend router
 
-`index.js` owns the View's route-to-page mapping. The registered phase-one routes are
-`/`, `/grounding`, `/chat`, `/history`, `/account`, and `/support`.
+`index.js` owns the View's route-to-page mapping. The seven registered phase-one
+routes are `/`, `/grounding`, `/chat`, `/calendar`, `/history`, `/account`, and
+`/support`.
 
-Route components are presentation placeholders at this stage. They must communicate
-with backend controllers through the JSON contracts in `docs/mvc-contracts.md`; the
-router does not import backend Python modules or access SQLite.
+Grounding, Chat, Calendar, and History carry `requiresAccount` metadata. The
+application shell enforces that presentation-level gate with the current local
+account state; it is not server-issued authorization. Route components communicate
+with backend controllers through the JSON contracts in `docs/mvc-contracts.md`, and
+the router does not import backend Python modules or access SQLite.

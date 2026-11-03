@@ -1,7 +1,7 @@
 # Controller API
 
 - `app.py` provides the FastAPI application factory and local application object.
-- `routes.py` implements the health, user, exercise-session, chat-message, read-only history, voice-configuration, and voice-session routes.
+- `routes.py` implements health, account/user, exercise-session, calendar check-in, chat-message, read-only history, voice-configuration, and voice-session routes.
 - `schemas.py` rejects undocumented request fields and validates the documented inputs.
 - `responses.py` owns the stable `data`/`error` envelope and public entity serialization.
 

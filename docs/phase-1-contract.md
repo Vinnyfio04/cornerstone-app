@@ -17,6 +17,7 @@ Build a functional framework connecting the Vue View, FastAPI controllers, and S
 | `/` | Home | Hold-to-breathe control, prominent grounding entry, chat entry, persistent support link |
 | `/grounding` | 5-4-3-2-1 grounding | Deterministic five-step sequence with no required typing |
 | `/chat` | Conversation | Persisted text chat through OpenAI when configured; otherwise a recoverable unavailable state |
+| `/calendar` | Daily check-ins | Month navigation plus multiple editable emotional check-ins for present and past dates |
 | `/history` | Saved activity | Lists persisted chat messages and exercise sessions for the active fictional user |
 | `/account` | Local account | Registration, sign-in, profile/credential update, logout, and account deletion |
 | `/support` | Crisis-support information | Static View content that works without FastAPI, SQLite, OpenAI, or classification |
@@ -37,6 +38,7 @@ The interface must remain understandable without relying on color alone.
 ## Hold-to-breathe contract
 
 - Pointer, touch, or stylus press starts a repeating four-second inhale and six-second exhale cue.
+- A natural wind-and-chime ambience starts with the activity, loops only if needed, and stops and rewinds with every exercise stop. It is not slowed, pitch-shifted, or phase-controlled.
 - Releasing, pointer cancellation, route navigation, or loss of page visibility stops the cue immediately.
 - A keyboard-accessible start/stop control provides equivalent behavior for users who cannot hold a pointer.
 - Six uninterrupted cycles equal the planned 60-second completion point.
@@ -70,22 +72,23 @@ The chat page provides a message list, text input, send action, loading state, r
 - A failed or timed-out request returns a deterministic explanation and leaves navigation, breathing, grounding, history, and support information usable.
 - Phase 1 limits message length, retained context, and output length through controller-owned constants.
 
-The supplied therapy-conversation material will be used only after the user provides it and its provenance and suitability are reviewed. It will be treated as curated reference context or examples, not as a claim that OpenAI models were trained or fine-tuned by this project. No reference conversations will be generated to fill the missing source material.
+The supplied therapist-informed instruction is code-versioned in the controller layer and sent as the Responses `instructions` field. Additional datasets, including `backend/models/data/intents.json`, remain excluded from model input until provenance, privacy, and suitability are reviewed. No reference conversations will be generated to fill missing source material, and the project does not claim that an OpenAI model was trained or fine-tuned on project content.
 
 ## Account and history decision
 
 The approved account increment replaces the automatically created fictional demo user with explicit local registration and sign-in. Registration creates a `users` row and its one-to-one `login` row in one transaction. Passwords are salted and PBKDF2-hashed by a controller service; plaintext passwords and password hashes are never returned to the View or stored in browser storage.
 
-The browser stores only the active integer user identifier and restores the corresponding public account after reload. This deliberately small coursework session does not issue server authorization tokens, so it must not be represented as production authentication. Breathing and the independent support route remain available while signed out. Grounding, chat, voice, history, and persistence require a signed-in account.
+The browser stores only the active integer user identifier and restores the corresponding public account after reload. This deliberately small coursework session does not issue server authorization tokens, so it must not be represented as production authentication. Breathing and the independent support route remain available while signed out. Grounding, chat, voice, calendar, history, and persistence require a signed-in account.
 
-The history page shows only the active account's saved chat messages and exercise sessions, including completion/exit status, measured duration, and model delivery status. It must not imply that another person is monitoring the history.
+The history page shows the active account's exercise sessions, including completion/exit status and measured duration. Chat owns the Past conversations dropdown beside New conversation; it includes expandable saved messages, updated timestamps, message counts, and an Open conversation action. The selected conversation continues through the existing chat endpoint. Neither screen implies that another person is monitoring the history.
 
 ## Persistence additions
 
 The existing three tables remain. Phase 1 adds:
 
 - `conversations`: groups ordered `chat_logs` for one user;
-- `exercise_sessions`: stores skill, status, planned duration, server timestamps, measured active duration, and last step/phase.
+- `exercise_sessions`: stores skill, status, planned duration, server timestamps, measured active duration, and last step/phase;
+- `check_ins`: stores user-owned feeling, marker color, description, ISO local date, and creation time. Multiple rows may share one user/date.
 
 `chat_logs` gains a conversation reference. Migrations must preserve existing rows and must not overwrite a database file supplied later by the user. The exact fields and relationships are defined in `docs/mvc-contracts.md`.
 
@@ -93,7 +96,7 @@ The existing three tables remain. Phase 1 adds:
 
 The `/support` page is compiled into the Vue View and opens without calling the backend. A persistent link appears on every route, including loading and error states. No keyword detector, model response, or classifier is required to reveal it.
 
-Jurisdiction-specific resource names and contact details remain unresolved and must be supplied or approved before the support page is considered complete. Until then, the framework may contain clearly labeled placeholder copy, but verification must not claim final crisis-resource content.
+The user selected the United States/Pennsylvania for the final support content. The View now contains static emergency and Lifeline destinations checked through the helpline lookup and official sources, with source links and the review date. It remains separate from backend/model success. `docs/support-sources.md` records the source review and the limit that no external service was contacted during testing.
 
 ## Project dependencies
 
@@ -113,6 +116,7 @@ Phase 1 must visibly handle:
 - database conflict or missing record;
 - release, cancellation, route change, or visibility loss during breathing;
 - leaving grounding before completion.
+- invalid or future calendar-date actions, invalid colors, and missing check-in records.
 
 Failures must use the documented JSON error envelope when the backend is involved. The static support route must remain available.
 
@@ -127,9 +131,10 @@ Phase 1 is ready for review when evidence shows:
 - an injected provider verifies successful persistence and injected chat failure remains recoverable;
 - the OpenAI request contract is fake-client verified but live output remains clearly reported as unverified until a paid call is deliberately approved;
 - conversation and exercise history survive restart;
+- multiple same-day check-ins persist, render as bounded date markers, and remain individually editable while future dates stay read-only;
 - support information opens independently before, during, and after backend/model failure;
 - automated checks, browser observations, and SQLite queries agree;
-- unfinished authentication, final support content, reference material, and visual refinement are reported honestly.
+- the prototype account gate, final support content, excluded reference data, live-provider limits, and remaining accessibility/visual review are reported honestly.
 
 ## Review decisions before Step 2
 
@@ -137,6 +142,6 @@ The following decisions are adopted for this contract unless changed during revi
 
 1. Releasing before 60 seconds means `exited`; reaching six cycles means `completed`.
 2. The later approved account increment uses explicit local registration and sign-in while preserving signed-out access to breathing and support information.
-3. `conversations` and `exercise_sessions` are added to meet persistence and evidence needs.
+3. `conversations`, `exercise_sessions`, and `check_ins` are added to meet persistence and evidence needs.
 4. Production text chat always targets the OpenAI adapter. Credential-free runs expose a recoverable unavailable state; tests inject focused provider doubles without creating a runtime mock mode.
 5. Final jurisdiction-specific crisis-resource content remains blocked on user approval.
